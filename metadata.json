@@ -1,0 +1,6 @@
+{
+  "name": "Gestão Financeira EBD",
+  "description": "Sistema completo e responsivo para controle financeiro, caixas (5% EBD e Lições), auditoria, assinaturas digitais, fechamento semanal e relatórios da Escola Bíblica Dominical (EBD).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
