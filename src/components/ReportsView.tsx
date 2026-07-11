@@ -73,7 +73,7 @@ export default function ReportsView({
   });
 
   // Approved only summaries for reporting accuracy
-  const reportTransactions = filteredTransactions.filter(t => t.isApproved);
+  const reportTransactions = filteredTransactions.filter(t => t.isApproved !== false);
 
   const totalInflow = reportTransactions
     .filter(t => t.type === 'ENTRADA')
@@ -90,7 +90,7 @@ export default function ReportsView({
     // We want to calculate the running balance of each box chronologically.
     // Get all approved transactions sorted by date.
     const approvedTxs = [...transactions]
-      .filter(t => t.isApproved)
+      .filter(t => t.isApproved !== false)
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Get initial balances
@@ -167,7 +167,7 @@ export default function ReportsView({
     filteredTransactions.forEach(t => {
       const boxName = boxes.find(b => b.id === t.boxId)?.name || '';
       const catName = categories.find(c => c.id === t.categoryId)?.name || '';
-      csv += `"${t.transactionNum}";"${t.type}";"${boxName}";"${catName}";"${t.date}";"${t.time}";"${t.responsible}";"${t.amount}";"${(t.description || '').replace(/"/g, '""')}";"${t.isApproved ? 'Aprovado' : 'Pendente'}"\r\n`;
+      csv += `"${t.transactionNum}";"${t.type}";"${boxName}";"${catName}";"${t.date}";"${t.time}";"${t.responsible}";"${t.amount}";"${(t.description || '').replace(/"/g, '""')}";"${t.isApproved !== false ? 'Aprovado' : 'Pendente'}"\r\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

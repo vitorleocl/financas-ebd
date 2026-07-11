@@ -330,7 +330,7 @@ export default function BoxesManagement({
                   ) : (
                     filteredBoxTransactions.map(t => {
                       const categoryObj = categories.find(c => c.id === t.categoryId);
-                      const isApprovedVal = t.isApproved;
+                      const isApprovedVal = t.isApproved !== false;
                       return (
                         <tr key={t.id} className="hover:bg-slate-50/75 transition-colors">
                           <td className="p-3 font-mono font-bold text-slate-600">{t.transactionNum}</td>

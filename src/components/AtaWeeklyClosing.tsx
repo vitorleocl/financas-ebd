@@ -39,7 +39,7 @@ export default function AtaWeeklyClosing({ closing, transactions, onClose }: Ata
   };
 
   const cycleTransactions = transactions.filter(
-    t => isDateBetween(t.date, closing.startDate, closing.endDate) && t.isApproved
+    t => isDateBetween(t.date, closing.startDate, closing.endDate) && t.isApproved !== false
   );
 
   const handlePrint = () => {

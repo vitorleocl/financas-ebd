@@ -90,7 +90,7 @@ export default function WeeklyClosing({
   };
 
   const cycleTransactions = transactions.filter(
-    t => isDateBetween(t.date, nextCycle.start, nextCycle.end) && t.isApproved
+    t => isDateBetween(t.date, nextCycle.start, nextCycle.end) && t.isApproved !== false
   );
 
   // Computations for next closing

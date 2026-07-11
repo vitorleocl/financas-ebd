@@ -130,7 +130,7 @@ export function recalculateBalances(state: AppState): Box[] {
     
     const balance = boxTransactionsForThisBox.reduce((acc, t) => {
       // If it's approved, it affects the box balance
-      if (t.isApproved) {
+      if (t.isApproved !== false) {
         if (t.type === 'ENTRADA') {
           return acc + t.amount;
         } else {

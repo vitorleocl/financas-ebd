@@ -430,10 +430,17 @@ export default function UsersManagement({
                       </td>
 
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-350" />
-                          Pronto na Nuvem
-                        </span>
+                        {u.id.startsWith('fb-invite-') ? (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Convite Pendente
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Acesso Vinculado
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-6 py-4">
@@ -606,10 +613,17 @@ export default function UsersManagement({
                       </div>
 
                       <div className="pt-2 border-t border-slate-50 flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                          <span className="w-1.2 h-1.2 rounded-full bg-slate-350" />
-                          Pronto na Nuvem
-                        </span>
+                        {u.id.startsWith('fb-invite-') ? (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Convite Pendente
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Acesso Vinculado
+                          </span>
+                        )}
 
                         <div className="flex gap-1.5">
                           <button

@@ -54,7 +54,7 @@ export default function Dashboard({
     return dateStr >= weekRange.start && dateStr <= weekRange.end;
   };
 
-  const weeklyTransactions = transactions.filter(t => isDateInCurrentWeek(t.date) && t.isApproved);
+  const weeklyTransactions = transactions.filter(t => isDateInCurrentWeek(t.date) && t.isApproved !== false);
   
   const weeklyInflow = weeklyTransactions
     .filter(t => t.type === 'ENTRADA')
@@ -64,12 +64,12 @@ export default function Dashboard({
     .filter(t => t.type === 'SAIDA')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const pendingApprovals = transactions.filter(t => !t.isApproved);
+  const pendingApprovals = transactions.filter(t => t.isApproved === false);
 
   // For charts, let's sum category totals
   const getCategoryRatio = () => {
-    const entries = transactions.filter(t => t.type === 'ENTRADA' && t.isApproved);
-    const exits = transactions.filter(t => t.type === 'SAIDA' && t.isApproved);
+    const entries = transactions.filter(t => t.type === 'ENTRADA' && t.isApproved !== false);
+    const exits = transactions.filter(t => t.type === 'SAIDA' && t.isApproved !== false);
     
     const entrySum = entries.reduce((sum, t) => sum + t.amount, 0);
     const exitSum = exits.reduce((sum, t) => sum + t.amount, 0);
@@ -383,11 +383,11 @@ export default function Dashboard({
                   </span>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
                     <span className={`font-extrabold px-1 py-0.2 rounded text-[9px] ${
-                      t.isApproved 
+                      t.isApproved !== false 
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                         : 'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}>
-                      {t.isApproved ? 'Aprovado' : 'Aguardando'}
+                      {t.isApproved !== false ? 'Aprovado' : 'Aguardando'}
                     </span>
                     <span className="font-semibold text-slate-500">
                       {t.boxId === 'CAIXA_5_EBD' ? '5% EBD' : 'Lições'}
