@@ -66,19 +66,25 @@ const mergeAndSortTransactions = (local: Transaction[], remote: Transaction[]): 
   });
 };
 
-const mergeUsers = (local: any[], remote: any[]): any[] => {
+const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>): any[] => {
   const map = new Map<string, any>();
   if (Array.isArray(local)) {
     local.forEach(u => {
       if (u && u.username) {
-        map.set(u.username.toLowerCase().trim(), u);
+        const key = u.username.toLowerCase().trim();
+        if (!deletedUsernames || !deletedUsernames.has(key)) {
+          map.set(key, u);
+        }
       }
     });
   }
   if (Array.isArray(remote)) {
     remote.forEach(u => {
       if (u && u.username) {
-        map.set(u.username.toLowerCase().trim(), u);
+        const key = u.username.toLowerCase().trim();
+        if (!deletedUsernames || !deletedUsernames.has(key)) {
+          map.set(key, u);
+        }
       }
     });
   }
@@ -164,16 +170,33 @@ const registerUserProfileInFirestore = async (fbUser: any): Promise<void> => {
     if (docSnap.exists()) {
       const savedState = docSnap.data();
       const remoteUsers = savedState.users || [];
-      const isAlreadyRegistered = remoteUsers.some((u: any) => u && u.username && u.username.toLowerCase().trim() === emailLower);
+      const existingUserIndex = remoteUsers.findIndex((u: any) => u && u.username && u.username.toLowerCase().trim() === emailLower);
 
-      if (!isAlreadyRegistered) {
+      if (existingUserIndex === -1) {
         console.log(`[Firebase Register] Registrando usuário ${emailLower} atomicamente via updateDoc...`);
         await updateDoc(docRef, {
           users: arrayUnion(newUserProfile)
         });
         console.log(`[Firebase Register] Usuário ${emailLower} registrado com sucesso em Firestore.`);
       } else {
-        console.log(`[Firebase Register] Usuário ${emailLower} já está registrado.`);
+        const existingUser = remoteUsers[existingUserIndex];
+        // If the existing user was a pre-registered invite or has a different ID, update their ID and details to their real Firebase credentials
+        if (existingUser.id.startsWith('fb-invite-') || existingUser.id !== `fb-${fbUser.uid}`) {
+          console.log(`[Firebase Register] Atualizando ID/perfil de convite de ${emailLower} para UID do Firebase...`);
+          const updatedUsers = [...remoteUsers];
+          updatedUsers[existingUserIndex] = {
+            ...existingUser,
+            id: `fb-${fbUser.uid}`,
+            name: fbUser.displayName || existingUser.name,
+            avatarColor: existingUser.role === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+          };
+          await updateDoc(docRef, {
+            users: updatedUsers
+          });
+          console.log(`[Firebase Register] ID do usuário ${emailLower} atualizado com sucesso no Firestore.`);
+        } else {
+          console.log(`[Firebase Register] Usuário ${emailLower} já está registrado com UID correto.`);
+        }
       }
     } else {
       // If the document doesn't exist, we only call setDoc if the user registering is a MASTER user.
@@ -212,6 +235,9 @@ export default function App() {
 
   // Gate to prevent local stale state from overwriting Firestore during connection
   const hasLoadedFromFirestoreRef = useRef<boolean>(false);
+
+  // Keep track of users explicitly deleted by the Master to prevent them from being brought back in snap merges
+  const deletedUsernamesRef = useRef<Set<string>>(new Set<string>());
 
   // Connection and loading states
   const [isConnectingAuth, setIsConnectingAuth] = useState<boolean>(() => {
@@ -406,6 +432,10 @@ export default function App() {
                 if (savedState.transactions && Array.isArray(savedState.transactions)) {
                   updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
                 }
+                
+                // Recalculate box balances automatically based on the newly merged transactions list
+                updatedState.boxes = recalculateBalances(updatedState);
+
                 if (savedState.people && Array.isArray(savedState.people)) {
                   updatedState.people = mergeArraysById(current.people || [], savedState.people);
                 }
@@ -417,7 +447,7 @@ export default function App() {
                 }
                 const emailLower = fbUser.email?.toLowerCase().trim() || '';
                 if (savedState.users && Array.isArray(savedState.users)) {
-                  updatedState.users = mergeUsers(current.users || [], savedState.users);
+                  updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
                 }
 
                 // Check if currently authenticated user email's role has changed in the user list
@@ -635,7 +665,7 @@ export default function App() {
       setSyncingFirestore(true);
       const timer = setTimeout(() => {
         lastSyncStringRef.current = currentStr;
-        saveStateToFirestore(fbUserId, state)
+        saveStateToFirestore(fbUserId, state, Array.from(deletedUsernamesRef.current))
           .then(() => {
             setLastSyncedTime(new Date().toLocaleTimeString());
           })
@@ -739,6 +769,10 @@ export default function App() {
           if (savedState.transactions && Array.isArray(savedState.transactions)) {
             updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
           }
+          
+          // Recalculate balances automatically from merged transactions
+          updatedState.boxes = recalculateBalances(updatedState);
+
           if (savedState.people && Array.isArray(savedState.people)) {
             updatedState.people = mergeArraysById(current.people || [], savedState.people);
           }
@@ -749,7 +783,7 @@ export default function App() {
             updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
           }
           if (savedState.users && Array.isArray(savedState.users)) {
-            updatedState.users = mergeUsers(current.users || [], savedState.users);
+            updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
           }
 
           // Force check authenticated user
@@ -1960,6 +1994,16 @@ export default function App() {
                 users={state.users}
                 currentUser={state.currentUser}
                 onUpdateUsersList={(updatedUsers) => {
+                  // Find and track any user who was removed by the administrator
+                  const currentEmails = new Set(updatedUsers.map(u => u && u.username ? u.username.toLowerCase().trim() : ''));
+                  state.users.forEach(u => {
+                    if (u && u.username) {
+                      const emailClean = u.username.toLowerCase().trim();
+                      if (!currentEmails.has(emailClean)) {
+                        deletedUsernamesRef.current.add(emailClean);
+                      }
+                    }
+                  });
                   setState(current => ({ ...current, users: updatedUsers }));
                 }}
                 onLogAudit={(action, details) => {

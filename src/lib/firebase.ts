@@ -85,7 +85,7 @@ export type { FirebaseUser };
 /**
  * Saves the entire application state (excluding currentUser session) to Firestore for any authenticated user.
  */
-export async function saveStateToFirestore(userId: string, stateData: any) {
+export async function saveStateToFirestore(userId: string, stateData: any, deletedUsernames?: string[]) {
   const savePromise = (async () => {
     try {
       const userDocRef = doc(db, "ebd_states", "shared_church_ebd");
@@ -107,19 +107,29 @@ export async function saveStateToFirestore(userId: string, stateData: any) {
           
           // Merge local and remote users safely
           const map = new Map<string, any>();
+          const deletedSet = new Set(deletedUsernames?.map(u => u.toLowerCase().trim()) || []);
+          
           remoteUsers.forEach((u: any) => {
-            if (u && u.username) map.set(u.username.toLowerCase().trim(), u);
+            if (u && u.username) {
+              const key = u.username.toLowerCase().trim();
+              if (!deletedSet.has(key)) {
+                map.set(key, u);
+              }
+            }
           });
+          
           mergedUsers.forEach((u: any) => {
             if (u && u.username) {
               const key = u.username.toLowerCase().trim();
-              if (!map.has(key)) {
-                map.set(key, u);
-              } else {
-                // If local has newer details (e.g. edited role), prioritize it
-                const remoteUser = map.get(key);
-                if (u.role !== remoteUser.role || u.name !== remoteUser.name) {
+              if (!deletedSet.has(key)) {
+                if (!map.has(key)) {
                   map.set(key, u);
+                } else {
+                  // If local has newer details (e.g. edited role or updated UID), prioritize it
+                  const remoteUser = map.get(key);
+                  if (u.role !== remoteUser.role || u.name !== remoteUser.name || u.id !== remoteUser.id) {
+                    map.set(key, u);
+                  }
                 }
               }
             }
