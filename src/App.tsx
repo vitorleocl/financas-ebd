@@ -170,6 +170,15 @@ const registerUserProfileInFirestore = async (fbUser: any): Promise<void> => {
     if (docSnap.exists()) {
       const savedState = docSnap.data();
       const remoteUsers = savedState.users || [];
+      const deletedEmails = savedState.deletedEmails || [];
+      const isDeleted = deletedEmails.some((e: string) => e && e.toLowerCase().trim() === emailLower);
+
+      // If they were explicitly deleted, skip auto-registration unless they are MASTER
+      if (isDeleted && assignedRole !== 'MASTER') {
+        console.log(`[Firebase Register] User ${emailLower} is in deleted/blocked list. Skipping auto-registration.`);
+        return;
+      }
+
       const existingUserIndex = remoteUsers.findIndex((u: any) => u && u.username && u.username.toLowerCase().trim() === emailLower);
 
       if (existingUserIndex === -1) {
@@ -367,20 +376,29 @@ export default function App() {
         try {
           const docRef = doc(db, "ebd_states", "shared_church_ebd");
           unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
-            // Unblock and enable Firestore syncing once the first snapshot arrives
-            hasLoadedFromFirestoreRef.current = true;
-            setIsConnectingAuth(false);
-            setFirebaseError(null); // Clear any previous error on success!
+            try {
+              // Unblock and enable Firestore syncing once the first snapshot arrives
+              hasLoadedFromFirestoreRef.current = true;
+              setIsConnectingAuth(false);
+              setFirebaseError(null); // Clear any previous error on success!
 
-            if (docSnap.exists()) {
-              const savedState = docSnap.data();
+              if (docSnap.exists()) {
+                const savedState = docSnap.data();
 
-              // Atomic registration guard to guarantee new logins are recorded in Firestore immediately
-              const emailLowerForReg = fbUser.email?.toLowerCase().trim() || '';
-              const remoteUsersForReg = savedState.users || [];
-              const isAlreadyRegisteredInFirestore = remoteUsersForReg.some((u: any) => u && u.username && u.username.toLowerCase().trim() === emailLowerForReg);
+                // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
+                if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
+                  savedState.deletedEmails.forEach((e: string) => {
+                    if (e) deletedUsernamesRef.current.add(e.toLowerCase().trim());
+                  });
+                }
 
-              if (!isAlreadyRegisteredInFirestore && emailLowerForReg) {
+                // Atomic registration guard to guarantee new logins are recorded in Firestore immediately
+                const emailLowerForReg = fbUser.email?.toLowerCase().trim() || '';
+                const remoteUsersForReg = savedState.users || [];
+                const deletedEmailsForReg = savedState.deletedEmails || [];
+                const isAlreadyRegisteredInFirestore = remoteUsersForReg.some((u: any) => u && u.username && u.username.toLowerCase().trim() === emailLowerForReg);
+                const isDeletedForReg = deletedEmailsForReg.some((e: string) => e && e.toLowerCase().trim() === emailLowerForReg);
+
                 let assignedRoleForReg: UserRole = 'VISITANTE';
                 let displayNameForReg = fbUser.displayName || fbUser.email?.split('@')[0] || 'Membro';
 
@@ -394,210 +412,214 @@ export default function App() {
                   displayNameForReg = 'Vitor Leonardo';
                 }
 
-                const newUserProfile = {
-                  id: `fb-${fbUser.uid}`,
-                  name: displayNameForReg,
-                  username: emailLowerForReg,
-                  role: assignedRoleForReg,
-                  avatarColor: assignedRoleForReg === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
-                };
+                if (!isAlreadyRegisteredInFirestore && emailLowerForReg && (!isDeletedForReg || assignedRoleForReg === 'MASTER')) {
+                  const newUserProfile = {
+                    id: `fb-${fbUser.uid}`,
+                    name: displayNameForReg,
+                    username: emailLowerForReg,
+                    role: assignedRoleForReg,
+                    avatarColor: assignedRoleForReg === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+                  };
 
-                console.log(`[Firebase Auth] Registering user ${emailLowerForReg} atomically into Firestore...`);
-                updateDoc(docRef, {
-                  users: arrayUnion(newUserProfile)
-                }).then(() => {
-                  console.log(`[Firebase Auth] Successfully registered ${emailLowerForReg} in Firestore.`);
-                }).catch(err => {
-                  console.error("Error with atomic registration of user profile:", err);
-                });
-              }
-
-              setState(current => {
-                const updatedState = { ...current };
-                
-                // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
-                if (savedState.boxes && Array.isArray(savedState.boxes)) {
-                  updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
-                }
-                if (savedState.categories && Array.isArray(savedState.categories)) {
-                  const mergedCats = mergeArraysById(current.categories || [], savedState.categories);
-                  // Ensure all INITIAL_CATEGORIES are present in the list
-                  INITIAL_CATEGORIES.forEach((initCat: any) => {
-                    if (!mergedCats.some(c => c.id === initCat.id)) {
-                      mergedCats.push(initCat);
-                    }
+                  console.log(`[Firebase Auth] Registering user ${emailLowerForReg} atomically into Firestore...`);
+                  updateDoc(docRef, {
+                    users: arrayUnion(newUserProfile)
+                  }).then(() => {
+                    console.log(`[Firebase Auth] Successfully registered ${emailLowerForReg} in Firestore.`);
+                  }).catch(err => {
+                    console.error("Error with atomic registration of user profile:", err);
                   });
-                  updatedState.categories = mergedCats;
-                }
-                if (savedState.transactions && Array.isArray(savedState.transactions)) {
-                  updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
-                }
-                
-                // Recalculate box balances automatically based on the newly merged transactions list
-                updatedState.boxes = recalculateBalances(updatedState);
-
-                if (savedState.people && Array.isArray(savedState.people)) {
-                  updatedState.people = mergeArraysById(current.people || [], savedState.people);
-                }
-                if (savedState.closings && Array.isArray(savedState.closings)) {
-                  updatedState.closings = mergeClosings(current.closings || [], savedState.closings);
-                }
-                if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
-                  updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
-                }
-                const emailLower = fbUser.email?.toLowerCase().trim() || '';
-                if (savedState.users && Array.isArray(savedState.users)) {
-                  updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
                 }
 
-                // Check if currently authenticated user email's role has changed in the user list
-                let assignedRole: UserRole = 'VISITANTE';
-                let userDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Membro';
-
-                if (
-                  emailLower === 'vitorleonardoc@gmail.com' || 
-                  emailLower === 'vitorleonardocl@gmail.com' || 
-                  emailLower === 'vitorleonardocl@gmail.com.br' ||
-                  emailLower === 'vlcl@poli.br'
-                ) {
-                  assignedRole = 'MASTER';
-                  userDisplayName = 'Vitor Leonardo';
-                }
-
-                const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
-                if (registeredUserIndex >= 0) {
-                  const registeredUser = { ...updatedState.users[registeredUserIndex] };
-                  if (assignedRole !== 'MASTER') {
-                    assignedRole = registeredUser.role;
+                setState(current => {
+                  const updatedState = { ...current };
+                  
+                  // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
+                  if (savedState.boxes && Array.isArray(savedState.boxes)) {
+                    updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
                   }
-                  userDisplayName = registeredUser.name;
-
-                  // Update their ID in the synced users list to reflect their real Firebase UID
-                  if (registeredUser.id.startsWith('fb-invite-')) {
-                    registeredUser.id = `fb-${fbUser.uid}`;
+                  if (savedState.categories && Array.isArray(savedState.categories)) {
+                    const mergedCats = mergeArraysById(current.categories || [], savedState.categories);
+                    // Ensure all INITIAL_CATEGORIES are present in the list
+                    INITIAL_CATEGORIES.forEach((initCat: any) => {
+                      if (!mergedCats.some(c => c.id === initCat.id)) {
+                        mergedCats.push(initCat);
+                      }
+                    });
+                    updatedState.categories = mergedCats;
                   }
-                  updatedState.users[registeredUserIndex] = registeredUser;
-                } else {
-                  // Add them automatically to state.users so they show up in UsersManagement for administration
-                  const newUserObj = {
+                  if (savedState.transactions && Array.isArray(savedState.transactions)) {
+                    updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
+                  }
+                  
+                  // Recalculate box balances automatically based on the newly merged transactions list
+                  updatedState.boxes = recalculateBalances(updatedState);
+
+                  if (savedState.people && Array.isArray(savedState.people)) {
+                    updatedState.people = mergeArraysById(current.people || [], savedState.people);
+                  }
+                  if (savedState.closings && Array.isArray(savedState.closings)) {
+                    updatedState.closings = mergeClosings(current.closings || [], savedState.closings);
+                  }
+                  if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
+                    updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
+                  }
+                  const emailLower = fbUser.email?.toLowerCase().trim() || '';
+                  if (savedState.users && Array.isArray(savedState.users)) {
+                    updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
+                  }
+
+                  // Check if currently authenticated user email's role has changed in the user list
+                  let assignedRole: UserRole = 'VISITANTE';
+                  let userDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Membro';
+
+                  if (
+                    emailLower === 'vitorleonardoc@gmail.com' || 
+                    emailLower === 'vitorleonardocl@gmail.com' || 
+                    emailLower === 'vitorleonardocl@gmail.com.br' ||
+                    emailLower === 'vlcl@poli.br'
+                  ) {
+                    assignedRole = 'MASTER';
+                    userDisplayName = 'Vitor Leonardo';
+                  }
+
+                  const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
+                  if (registeredUserIndex >= 0) {
+                    const registeredUser = { ...updatedState.users[registeredUserIndex] };
+                    if (assignedRole !== 'MASTER') {
+                      assignedRole = registeredUser.role;
+                    }
+                    userDisplayName = registeredUser.name;
+
+                    // Update their ID in the synced users list to reflect their real Firebase UID
+                    if (registeredUser.id.startsWith('fb-invite-')) {
+                      registeredUser.id = `fb-${fbUser.uid}`;
+                    }
+                    updatedState.users[registeredUserIndex] = registeredUser;
+                  } else {
+                    // Add them automatically to state.users so they show up in UsersManagement for administration
+                    const newUserObj = {
+                      id: `fb-${fbUser.uid}`,
+                      name: userDisplayName,
+                      username: emailLower,
+                      role: assignedRole,
+                      avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+                    };
+                    updatedState.users.push(newUserObj);
+                  }
+
+                  // If this is the initial login transition, route to correct default tab
+                  if (!current.currentUser) {
+                    setTimeout(() => {
+                      setActiveTab('dashboard');
+                    }, 0);
+                  }
+
+                  // Update context user session to align with the database
+                  updatedState.currentUser = {
                     id: `fb-${fbUser.uid}`,
                     name: userDisplayName,
-                    username: emailLower,
+                    username: fbUser.email || '',
                     role: assignedRole,
-                    avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+                    avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : assignedRole === 'TESOUREIRO' ? 'bg-blue-600' : assignedRole === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500'
                   };
-                  updatedState.users.push(newUserObj);
-                }
 
-                // If this is the initial login transition, route to correct default tab
-                if (!current.currentUser) {
-                  setTimeout(() => {
-                    setActiveTab('dashboard');
-                  }, 0);
-                }
+                  // Normalize and serialize the incoming remote database state to set as the sync reference string.
+                  // This ensures that any local auto-additions or offline merges (like newly logged-in visitor users)
+                  // differ from the remote state and are successfully written back to Firestore!
+                  const normalizedRemote = {
+                    boxes: savedState.boxes || [],
+                    categories: savedState.categories || [],
+                    transactions: savedState.transactions || [],
+                    people: savedState.people || [],
+                    closings: savedState.closings || [],
+                    auditLogs: savedState.auditLogs || [],
+                    users: savedState.users || []
+                  };
+                  lastSyncStringRef.current = JSON.stringify(normalizedRemote);
 
-                // Update context user session to align with the database
-                updatedState.currentUser = {
-                  id: `fb-${fbUser.uid}`,
-                  name: userDisplayName,
-                  username: fbUser.email || '',
-                  role: assignedRole,
-                  avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : assignedRole === 'TESOUREIRO' ? 'bg-blue-600' : assignedRole === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500'
-                };
+                  return updatedState;
+                });
+              } else {
+                console.log("No shared church EBD document found in Firestore. Initializing with local state...");
+                // Initialize with default state
+                const defaultState = getInitialState();
+                saveStateToFirestore(fbUser.uid, defaultState).then(() => {
+                  console.log("Firestore state successfully initialized on-demand.");
+                }).catch(err => {
+                  console.error("Failed to initialize Firestore state on-demand:", err);
+                });
 
-                // Normalize and serialize the incoming remote database state to set as the sync reference string.
-                // This ensures that any local auto-additions or offline merges (like newly logged-in visitor users)
-                // differ from the remote state and are successfully written back to Firestore!
-                const normalizedRemote = {
-                  boxes: savedState.boxes || [],
-                  categories: savedState.categories || [],
-                  transactions: savedState.transactions || [],
-                  people: savedState.people || [],
-                  closings: savedState.closings || [],
-                  auditLogs: savedState.auditLogs || [],
-                  users: savedState.users || []
-                };
-                lastSyncStringRef.current = JSON.stringify(normalizedRemote);
+                // Log user in locally to avoid hanging login page
+                setState(current => {
+                  const updatedState = { ...current };
+                  const emailLower = fbUser.email?.toLowerCase().trim() || '';
+                  let assignedRole: UserRole = 'VISITANTE';
+                  let userDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Membro';
 
-                return updatedState;
-              });
-            } else {
-              console.log("No shared church EBD document found in Firestore. Initializing with local state...");
-              // Initialize with default state
-              const defaultState = getInitialState();
-              saveStateToFirestore(fbUser.uid, defaultState).then(() => {
-                console.log("Firestore state successfully initialized on-demand.");
-              }).catch(err => {
-                console.error("Failed to initialize Firestore state on-demand:", err);
-              });
-
-              // Log user in locally to avoid hanging login page
-              setState(current => {
-                const updatedState = { ...current };
-                const emailLower = fbUser.email?.toLowerCase().trim() || '';
-                let assignedRole: UserRole = 'VISITANTE';
-                let userDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Membro';
-
-                if (
-                  emailLower === 'vitorleonardoc@gmail.com' || 
-                  emailLower === 'vitorleonardocl@gmail.com' || 
-                  emailLower === 'vitorleonardocl@gmail.com.br' ||
-                  emailLower === 'vlcl@poli.br'
-                ) {
-                  assignedRole = 'MASTER';
-                  userDisplayName = 'Vitor Leonardo';
-                }
-
-                const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
-                if (registeredUserIndex >= 0) {
-                  const registeredUser = updatedState.users[registeredUserIndex];
-                  if (assignedRole !== 'MASTER') {
-                    assignedRole = registeredUser.role;
+                  if (
+                    emailLower === 'vitorleonardoc@gmail.com' || 
+                    emailLower === 'vitorleonardocl@gmail.com' || 
+                    emailLower === 'vitorleonardocl@gmail.com.br' ||
+                    emailLower === 'vlcl@poli.br'
+                  ) {
+                    assignedRole = 'MASTER';
+                    userDisplayName = 'Vitor Leonardo';
                   }
-                  userDisplayName = registeredUser.name;
-                } else {
-                  const newUserObj = {
+
+                  const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
+                  if (registeredUserIndex >= 0) {
+                    const registeredUser = updatedState.users[registeredUserIndex];
+                    if (assignedRole !== 'MASTER') {
+                      assignedRole = registeredUser.role;
+                    }
+                    userDisplayName = registeredUser.name;
+                  } else {
+                    const newUserObj = {
+                      id: `fb-${fbUser.uid}`,
+                      name: userDisplayName,
+                      username: emailLower,
+                      role: assignedRole,
+                      avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+                    };
+                    updatedState.users.push(newUserObj);
+                  }
+
+                  if (!current.currentUser) {
+                    setTimeout(() => {
+                      setActiveTab('dashboard');
+                    }, 0);
+                  }
+
+                  updatedState.currentUser = {
                     id: `fb-${fbUser.uid}`,
                     name: userDisplayName,
-                    username: emailLower,
+                    username: fbUser.email || '',
                     role: assignedRole,
-                    avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : 'bg-slate-500'
+                    avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : assignedRole === 'TESOUREIRO' ? 'bg-blue-600' : assignedRole === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500'
                   };
-                  updatedState.users.push(newUserObj);
-                }
 
-                if (!current.currentUser) {
-                  setTimeout(() => {
-                    setActiveTab('dashboard');
-                  }, 0);
-                }
+                  // Normalize and serialize the newly initialized state to set as the sync reference string
+                  const normalizedCurrent = {
+                    boxes: updatedState.boxes || [],
+                    categories: updatedState.categories || [],
+                    transactions: updatedState.transactions || [],
+                    people: updatedState.people || [],
+                    closings: updatedState.closings || [],
+                    auditLogs: updatedState.auditLogs || [],
+                    users: updatedState.users || []
+                  };
+                  lastSyncStringRef.current = JSON.stringify(normalizedCurrent);
 
-                updatedState.currentUser = {
-                  id: `fb-${fbUser.uid}`,
-                  name: userDisplayName,
-                  username: fbUser.email || '',
-                  role: assignedRole,
-                  avatarColor: assignedRole === 'MASTER' ? 'bg-indigo-900' : assignedRole === 'TESOUREIRO' ? 'bg-blue-600' : assignedRole === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500'
-                };
+                  return updatedState;
+                });
 
-                // Normalize and serialize the newly initialized state to set as the sync reference string
-                const normalizedCurrent = {
-                  boxes: updatedState.boxes || [],
-                  categories: updatedState.categories || [],
-                  transactions: updatedState.transactions || [],
-                  people: updatedState.people || [],
-                  closings: updatedState.closings || [],
-                  auditLogs: updatedState.auditLogs || [],
-                  users: updatedState.users || []
-                };
-                lastSyncStringRef.current = JSON.stringify(normalizedCurrent);
-
-                return updatedState;
-              });
-
-              // Also immediately set loading flags to false so user is unblocked
-              hasLoadedFromFirestoreRef.current = true;
-              setIsConnectingAuth(false);
+                // Also immediately set loading flags to false so user is unblocked
+                hasLoadedFromFirestoreRef.current = true;
+                setIsConnectingAuth(false);
+              }
+            } catch (snapErr) {
+              console.error("Critical error in onSnapshot success callback:", snapErr);
             }
           }, (err: any) => {
             console.error("Erro no listener de Firestore onSnapshot:", err);

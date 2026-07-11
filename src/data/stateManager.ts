@@ -118,23 +118,24 @@ export function addAuditLog(
 
 // Recalculates box balances based on APPROVED transactions
 export function recalculateBalances(state: AppState): Box[] {
-  return state.boxes.map(box => {
-    // Only accumulate approved or pending? Real systems count all transactions, but
-    // let's count all approved and pending transactions to represent the true ledger state,
-    // or separate into: "Saldo de Fato" vs "Saldo Conciliado". Let's simply sum all transactions,
-    // indicating pending items as awaiting approval.
-    const boxTransactionsForThisBox = state.transactions.filter(t => t.boxId === box.id);
+  const boxes = state.boxes || [];
+  const transactions = state.transactions || [];
+
+  return boxes.map(box => {
+    if (!box) return box;
+    
+    const boxTransactionsForThisBox = transactions.filter(t => t && t.boxId === box.id);
     
     // Base is starting balance which is constant or starting from zero.
     const baseBalance = box.initialBalance || 0;
     
     const balance = boxTransactionsForThisBox.reduce((acc, t) => {
-      // If it's approved, it affects the box balance
-      if (t.isApproved !== false) {
+      if (t && t.isApproved !== false) {
+        const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
         if (t.type === 'ENTRADA') {
-          return acc + t.amount;
+          return acc + amt;
         } else {
-          return acc - t.amount;
+          return acc - amt;
         }
       }
       return acc;
@@ -142,7 +143,7 @@ export function recalculateBalances(state: AppState): Box[] {
 
     return {
       ...box,
-      balance
+      balance: parseFloat(balance.toFixed(2)) // Keep decimal precision safe
     };
   });
 }

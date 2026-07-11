@@ -92,6 +92,7 @@ export async function saveStateToFirestore(userId: string, stateData: any, delet
       
       // Fetch latest remote users directly from the server to bypass stale cache and prevent overwriting concurrent registrations!
       let mergedUsers = stateData.users || [];
+      let finalDeletedEmails: string[] = [];
       try {
         let docSnap;
         try {
@@ -107,7 +108,10 @@ export async function saveStateToFirestore(userId: string, stateData: any, delet
           
           // Merge local and remote users safely
           const map = new Map<string, any>();
-          const deletedSet = new Set(deletedUsernames?.map(u => u.toLowerCase().trim()) || []);
+          const deletedSet = new Set([
+            ...(remoteData.deletedEmails || []).map((e: string) => e.toLowerCase().trim()),
+            ...(deletedUsernames || []).map((e: string) => e.toLowerCase().trim())
+          ]);
           
           remoteUsers.forEach((u: any) => {
             if (u && u.username) {
@@ -135,15 +139,23 @@ export async function saveStateToFirestore(userId: string, stateData: any, delet
             }
           });
           mergedUsers = Array.from(map.values());
+
+          // Filter out active users from the deletedEmails list to allow clean re-invites
+          const activeEmails = new Set(mergedUsers.map((u: any) => u.username.toLowerCase().trim()));
+          finalDeletedEmails = Array.from(deletedSet).filter((e: string) => !activeEmails.has(e));
+        } else {
+          finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
         }
       } catch (err) {
         console.warn("Could not fetch remote users for merging before save:", err);
+        finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
       }
 
       // Ensure currentUser is null so credentials/local sessions are kept local
       const stateToSave = {
         ...stateData,
         users: mergedUsers,
+        deletedEmails: finalDeletedEmails,
         currentUser: null,
         updatedAt: new Date().toISOString()
       };

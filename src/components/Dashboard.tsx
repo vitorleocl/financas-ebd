@@ -54,25 +54,25 @@ export default function Dashboard({
     return dateStr >= weekRange.start && dateStr <= weekRange.end;
   };
 
-  const weeklyTransactions = transactions.filter(t => isDateInCurrentWeek(t.date) && t.isApproved !== false);
+  const weeklyTransactions = (transactions || []).filter(t => t && t.date && isDateInCurrentWeek(t.date) && t.isApproved !== false);
   
   const weeklyInflow = weeklyTransactions
-    .filter(t => t.type === 'ENTRADA')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .filter(t => t && t.type === 'ENTRADA')
+    .reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0), 0);
 
   const weeklyOutflow = weeklyTransactions
-    .filter(t => t.type === 'SAIDA')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .filter(t => t && t.type === 'SAIDA')
+    .reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0), 0);
 
-  const pendingApprovals = transactions.filter(t => t.isApproved === false);
+  const pendingApprovals = (transactions || []).filter(t => t && t.isApproved === false);
 
   // For charts, let's sum category totals
   const getCategoryRatio = () => {
-    const entries = transactions.filter(t => t.type === 'ENTRADA' && t.isApproved !== false);
-    const exits = transactions.filter(t => t.type === 'SAIDA' && t.isApproved !== false);
+    const entries = (transactions || []).filter(t => t && t.type === 'ENTRADA' && t.isApproved !== false);
+    const exits = (transactions || []).filter(t => t && t.type === 'SAIDA' && t.isApproved !== false);
     
-    const entrySum = entries.reduce((sum, t) => sum + t.amount, 0);
-    const exitSum = exits.reduce((sum, t) => sum + t.amount, 0);
+    const entrySum = entries.reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0), 0);
+    const exitSum = exits.reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0), 0);
     const total = entrySum + exitSum || 1;
 
     return {
@@ -82,8 +82,8 @@ export default function Dashboard({
   };
 
   const ratio = getCategoryRatio();
-  const box1 = boxes.find(b => b.id === 'CAIXA_5_EBD');
-  const box2 = boxes.find(b => b.id === 'CAIXA_LICOES');
+  const box1 = (boxes || []).find(b => b && b.id === 'CAIXA_5_EBD');
+  const box2 = (boxes || []).find(b => b && b.id === 'CAIXA_LICOES');
 
   const totalEbd = box1?.balance || 0;
   const totalLicoes = box2?.balance || 0;
