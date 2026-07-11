@@ -124,7 +124,20 @@ export function recalculateBalances(state: AppState): Box[] {
   return boxes.map(box => {
     if (!box) return box;
     
-    const boxTransactionsForThisBox = transactions.filter(t => t && t.boxId === box.id);
+    const boxTransactionsForThisBox = transactions.filter(t => {
+      if (!t) return false;
+      let bid = t.boxId;
+      if (!bid) {
+        // Fallback for transactions missing boxId
+        if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+            (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+          bid = 'CAIXA_LICOES';
+        } else {
+          bid = 'CAIXA_5_EBD';
+        }
+      }
+      return bid === box.id;
+    });
     
     // Base is starting balance which is constant or starting from zero.
     const baseBalance = box.initialBalance || 0;
