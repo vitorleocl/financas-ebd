@@ -106,12 +106,26 @@ export async function saveStateToFirestore(userId: string, stateData: any, delet
           const remoteData = docSnap.data();
           const remoteUsers = remoteData.users || [];
           
+          // Build set of active local user emails to ensure we don't accidentally filter them out!
+          const activeLocalEmails = new Set((stateData.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
+
           // Merge local and remote users safely
           const map = new Map<string, any>();
-          const deletedSet = new Set([
-            ...(remoteData.deletedEmails || []).map((e: string) => e.toLowerCase().trim()),
-            ...(deletedUsernames || []).map((e: string) => e.toLowerCase().trim())
-          ]);
+          
+          // Build deleted emails list, but EXCLUDE any email that is currently in our active local users list!
+          const deletedSet = new Set<string>();
+          const rawDeleted = [
+            ...(remoteData.deletedEmails || []),
+            ...(deletedUsernames || [])
+          ];
+          rawDeleted.forEach((e: string) => {
+            if (e) {
+              const emailClean = e.toLowerCase().trim();
+              if (!activeLocalEmails.has(emailClean)) {
+                deletedSet.add(emailClean);
+              }
+            }
+          });
           
           remoteUsers.forEach((u: any) => {
             if (u && u.username) {

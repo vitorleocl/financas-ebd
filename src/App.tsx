@@ -387,8 +387,16 @@ export default function App() {
 
                 // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
                 if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
+                  const activeRemoteEmails = new Set((savedState.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
                   savedState.deletedEmails.forEach((e: string) => {
-                    if (e) deletedUsernamesRef.current.add(e.toLowerCase().trim());
+                    if (e) {
+                      const emailClean = e.toLowerCase().trim();
+                      if (!activeRemoteEmails.has(emailClean)) {
+                        deletedUsernamesRef.current.add(emailClean);
+                      } else {
+                        deletedUsernamesRef.current.delete(emailClean);
+                      }
+                    }
                   });
                 }
 
@@ -777,6 +785,21 @@ export default function App() {
         
         // Mark as loaded from Firestore successfully since we got a valid response
         hasLoadedFromFirestoreRef.current = true;
+
+        // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
+        if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
+          const activeRemoteEmails = new Set((savedState.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
+          savedState.deletedEmails.forEach((e: string) => {
+            if (e) {
+              const emailClean = e.toLowerCase().trim();
+              if (!activeRemoteEmails.has(emailClean)) {
+                deletedUsernamesRef.current.add(emailClean);
+              } else {
+                deletedUsernamesRef.current.delete(emailClean);
+              }
+            }
+          });
+        }
         
         setState(current => {
           const updatedState = { ...current };
@@ -2024,6 +2047,12 @@ export default function App() {
                       if (!currentEmails.has(emailClean)) {
                         deletedUsernamesRef.current.add(emailClean);
                       }
+                    }
+                  });
+                  // Un-blacklist any active/re-added user email to allow clean re-invites and logins!
+                  updatedUsers.forEach(u => {
+                    if (u && u.username) {
+                      deletedUsernamesRef.current.delete(u.username.toLowerCase().trim());
                     }
                   });
                   setState(current => ({ ...current, users: updatedUsers }));
