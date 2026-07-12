@@ -68,16 +68,8 @@ const mergeAndSortTransactions = (local: Transaction[], remote: Transaction[]): 
 
 const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>): any[] => {
   const map = new Map<string, any>();
-  if (Array.isArray(local)) {
-    local.forEach(u => {
-      if (u && u.username) {
-        const key = u.username.toLowerCase().trim();
-        if (!deletedUsernames || !deletedUsernames.has(key)) {
-          map.set(key, u);
-        }
-      }
-    });
-  }
+  
+  // 1. Put remote users in first (they are the absolute source of truth for any loaded database snapshot)
   if (Array.isArray(remote)) {
     remote.forEach(u => {
       if (u && u.username) {
@@ -88,6 +80,32 @@ const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>)
       }
     });
   }
+  
+  // 2. Put local users in second ONLY if they do NOT exist in remote (to preserve newly registered/signed-up users before Firestore snapshot catches up)
+  if (Array.isArray(local)) {
+    local.forEach(u => {
+      if (u && u.username) {
+        const key = u.username.toLowerCase().trim();
+        if (!deletedUsernames || !deletedUsernames.has(key)) {
+          if (!map.has(key)) {
+            map.set(key, u);
+          } else {
+            // Keep remote user's role and details to prevent stale/optimistic local client states (like default localStorage values)
+            // from overriding the authorized Firestore roles on page load/refresh.
+            // The ONLY exception: if local user transitioned from a placeholder ID (fb-invite-) to a real Firebase ID, we can update the ID, but NOT the role/details.
+            const remoteUser = map.get(key);
+            if (u.id !== remoteUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && remoteUser.id.startsWith('fb-invite-')) {
+              map.set(key, {
+                ...remoteUser,
+                id: u.id
+              });
+            }
+          }
+        }
+      }
+    });
+  }
+  
   return Array.from(map.values());
 };
 
@@ -427,17 +445,11 @@ export default function App() {
                 setState(current => {
                   const updatedState = { ...current };
 
-                  // Track deleted emails from Firestore using the most up-to-date 'current.users' list!
+                  // Track deleted emails from Firestore unconditionally to ensure they remain deleted across devices
                   if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
-                    const activeLocalEmails = new Set((current.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
                     savedState.deletedEmails.forEach((e: string) => {
                       if (e) {
-                        const emailClean = e.toLowerCase().trim();
-                        if (!activeLocalEmails.has(emailClean)) {
-                          deletedUsernamesRef.current.add(emailClean);
-                        } else {
-                          deletedUsernamesRef.current.delete(emailClean);
-                        }
+                        deletedUsernamesRef.current.add(e.toLowerCase().trim());
                       }
                     });
                   }
@@ -780,17 +792,11 @@ export default function App() {
         setState(current => {
           const updatedState = { ...current };
 
-          // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
+          // Track deleted emails from Firestore unconditionally to ensure they remain deleted across devices
           if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
-            const activeLocalEmails = new Set((current.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
             savedState.deletedEmails.forEach((e: string) => {
               if (e) {
-                const emailClean = e.toLowerCase().trim();
-                if (!activeLocalEmails.has(emailClean)) {
-                  deletedUsernamesRef.current.add(emailClean);
-                } else {
-                  deletedUsernamesRef.current.delete(emailClean);
-                }
+                deletedUsernamesRef.current.add(e.toLowerCase().trim());
               }
             });
           }
@@ -2055,7 +2061,22 @@ export default function App() {
                       deletedUsernamesRef.current.delete(u.username.toLowerCase().trim());
                     }
                   });
-                  setState(current => ({ ...current, users: updatedUsers }));
+                  
+                  const newState = { ...state, users: updatedUsers };
+                  setState(newState);
+
+                  // Bypassing debounce and saving administrative user list modifications IMMEDIATELY to Firestore!
+                  // This completely prevents page-refresh data-loss or race conditions for user edits/deletions.
+                  if (state.currentUser && state.currentUser.id.startsWith('fb-') && state.currentUser.role !== 'VISITANTE') {
+                    const fbUserId = state.currentUser.id.replace('fb-', '');
+                    saveStateToFirestore(fbUserId, newState, Array.from(deletedUsernamesRef.current))
+                      .then(() => {
+                        console.log("[Users Management] Successfully persisted user list updates immediately to Firestore.");
+                      })
+                      .catch(e => {
+                        console.error("[Users Management] Failed to persist user list updates immediately to Firestore:", e);
+                      });
+                  }
                 }}
                 onLogAudit={(action, details) => {
                   setState(current => {
