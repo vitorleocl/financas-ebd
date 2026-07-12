@@ -761,7 +761,7 @@ export default function App() {
       setSyncingFirestore(true);
       const timer = setTimeout(() => {
         lastSyncStringRef.current = currentStr;
-        saveStateToFirestore(fbUserId, state, Array.from(deletedUsernamesRef.current))
+        saveStateToFirestore(fbUserId, state, Array.from(deletedUsernamesRef.current), Object.fromEntries(editedUsersRef.current))
           .then(() => {
             setLastSyncedTime(new Date().toLocaleTimeString());
           })
@@ -2155,7 +2155,7 @@ export default function App() {
                   // This completely prevents page-refresh data-loss or race conditions for user edits/deletions.
                   if (state.currentUser && state.currentUser.id.startsWith('fb-') && state.currentUser.role !== 'VISITANTE') {
                     const fbUserId = state.currentUser.id.replace('fb-', '');
-                    saveStateToFirestore(fbUserId, newState, Array.from(deletedUsernamesRef.current))
+                    saveStateToFirestore(fbUserId, newState, Array.from(deletedUsernamesRef.current), Object.fromEntries(editedUsersRef.current))
                       .then(() => {
                         console.log("[Users Management] Successfully persisted user list updates immediately to Firestore.");
                       })
