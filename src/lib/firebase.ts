@@ -261,9 +261,9 @@ export async function saveStateToFirestore(
 
   const timeoutPromise = new Promise<boolean>((resolve) => 
     setTimeout(() => {
-      console.warn("Firestore save operation timed out after 3000ms.");
+      console.warn("Firestore save operation timed out after 15000ms.");
       resolve(false);
-    }, 3000)
+    }, 15000)
   );
 
   return Promise.race([savePromise, timeoutPromise]);
@@ -288,9 +288,9 @@ export async function loadStateFromFirestore(userId: string) {
 
   const timeoutPromise = new Promise<null>((resolve) => 
     setTimeout(() => {
-      console.warn("Firestore load operation timed out after 3000ms. Falling back to local state to prevent login hang.");
+      console.warn("Firestore load operation timed out after 15000ms. Falling back to local state to prevent login hang.");
       resolve(null);
-    }, 3000)
+    }, 15000)
   );
 
   return Promise.race([fetchPromise, timeoutPromise]);

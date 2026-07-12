@@ -299,10 +299,41 @@ export default function App() {
   const hasLoadedFromFirestoreRef = useRef<boolean>(false);
 
   // Keep track of users explicitly deleted by the Master to prevent them from being brought back in snap merges
-  const deletedUsernamesRef = useRef<Set<string>>(new Set<string>());
+  const deletedUsernamesRef = useRef<Set<string>>((() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ebd_deleted_usernames');
+        return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+      } catch (e) {
+        console.warn("Failed to load deletedUsernamesRef from localStorage:", e);
+      }
+    }
+    return new Set<string>();
+  })());
 
   // Keep track of active role/name modifications to prevent in-flight Firestore snapshots from reverting edits
-  const editedUsersRef = useRef<Map<string, { role: UserRole; name: string }>>(new Map());
+  const editedUsersRef = useRef<Map<string, { role: UserRole; name: string }>>((() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ebd_edited_users');
+        return saved ? new Map<string, { role: UserRole; name: string }>(JSON.parse(saved)) : new Map<string, { role: UserRole; name: string }>();
+      } catch (e) {
+        console.warn("Failed to load editedUsersRef from localStorage:", e);
+      }
+    }
+    return new Map<string, { role: UserRole; name: string }>();
+  })());
+
+  const saveAdministrativeRefs = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ebd_deleted_usernames', JSON.stringify(Array.from(deletedUsernamesRef.current)));
+        localStorage.setItem('ebd_edited_users', JSON.stringify(Array.from(editedUsersRef.current.entries())));
+      } catch (e) {
+        console.warn("Failed to save administrative refs to localStorage:", e);
+      }
+    }
+  };
 
   // Connection and loading states
   const [isConnectingAuth, setIsConnectingAuth] = useState<boolean>(() => {
@@ -490,6 +521,7 @@ export default function App() {
                         deletedUsernamesRef.current.add(e.toLowerCase().trim());
                       }
                     });
+                    saveAdministrativeRefs();
                   }
                   
                   // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
@@ -525,15 +557,20 @@ export default function App() {
                   const emailLower = fbUser.email?.toLowerCase().trim() || '';
                   if (savedState.users && Array.isArray(savedState.users)) {
                     // Clear pending edit flags if the remote state has caught up with our local edit
+                    let clearedAnyEdit = false;
                     savedState.users.forEach((remoteUser: any) => {
                       if (remoteUser && remoteUser.username) {
                         const key = remoteUser.username.toLowerCase().trim();
                         const pendingEdit = editedUsersRef.current.get(key);
                         if (pendingEdit && remoteUser.role === pendingEdit.role && remoteUser.name === pendingEdit.name) {
                           editedUsersRef.current.delete(key);
+                          clearedAnyEdit = true;
                         }
                       }
                     });
+                    if (clearedAnyEdit) {
+                      saveAdministrativeRefs();
+                    }
 
                     updatedState.users = mergeUsers(
                       current.users || [], 
@@ -853,6 +890,7 @@ export default function App() {
                 deletedUsernamesRef.current.add(e.toLowerCase().trim());
               }
             });
+            saveAdministrativeRefs();
           }
           
           // Merge all entities safely
@@ -880,15 +918,20 @@ export default function App() {
           }
           if (savedState.users && Array.isArray(savedState.users)) {
             // Clear pending edit flags if the remote state has caught up with our local edit
+            let clearedAnyEdit = false;
             savedState.users.forEach((remoteUser: any) => {
               if (remoteUser && remoteUser.username) {
                 const key = remoteUser.username.toLowerCase().trim();
                 const pendingEdit = editedUsersRef.current.get(key);
                 if (pendingEdit && remoteUser.role === pendingEdit.role && remoteUser.name === pendingEdit.name) {
                   editedUsersRef.current.delete(key);
+                  clearedAnyEdit = true;
                 }
               }
             });
+            if (clearedAnyEdit) {
+              saveAdministrativeRefs();
+            }
 
             updatedState.users = mergeUsers(
               current.users || [], 
@@ -2150,6 +2193,7 @@ export default function App() {
                   
                   const newState = { ...state, users: updatedUsers };
                   setState(newState);
+                  saveAdministrativeRefs();
 
                   // Bypassing debounce and saving administrative user list modifications IMMEDIATELY to Firestore!
                   // This completely prevents page-refresh data-loss or race conditions for user edits/deletions.
