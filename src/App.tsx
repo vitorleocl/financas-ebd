@@ -66,7 +66,12 @@ const mergeAndSortTransactions = (local: Transaction[], remote: Transaction[]): 
   });
 };
 
-const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>): any[] => {
+const mergeUsers = (
+  local: any[], 
+  remote: any[], 
+  deletedUsernames?: Set<string>,
+  editedUsers?: Map<string, { role: UserRole; name: string }>
+): any[] => {
   const map = new Map<string, any>();
   
   // 1. Put remote users in first (they are the absolute source of truth for any loaded database snapshot)
@@ -75,7 +80,15 @@ const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>)
       if (u && u.username) {
         const key = u.username.toLowerCase().trim();
         if (!deletedUsernames || !deletedUsernames.has(key)) {
-          map.set(key, u);
+          let mergedUser = { ...u };
+          // Prioritize active administrative edits over the remote snapshot
+          if (editedUsers && editedUsers.has(key)) {
+            const edit = editedUsers.get(key)!;
+            mergedUser.role = edit.role;
+            mergedUser.name = edit.name;
+            mergedUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
+          }
+          map.set(key, mergedUser);
         }
       }
     });
@@ -88,18 +101,40 @@ const mergeUsers = (local: any[], remote: any[], deletedUsernames?: Set<string>)
         const key = u.username.toLowerCase().trim();
         if (!deletedUsernames || !deletedUsernames.has(key)) {
           if (!map.has(key)) {
-            map.set(key, u);
+            let mergedUser = { ...u };
+            if (editedUsers && editedUsers.has(key)) {
+              const edit = editedUsers.get(key)!;
+              mergedUser.role = edit.role;
+              mergedUser.name = edit.name;
+              mergedUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
+            }
+            map.set(key, mergedUser);
           } else {
             // Keep remote user's role and details to prevent stale/optimistic local client states (like default localStorage values)
             // from overriding the authorized Firestore roles on page load/refresh.
             // The ONLY exception: if local user transitioned from a placeholder ID (fb-invite-) to a real Firebase ID, we can update the ID, but NOT the role/details.
             const remoteUser = map.get(key);
+            
+            // If we have an active edit, don't overwrite with remote ID unless necessary
+            let finalId = remoteUser.id;
             if (u.id !== remoteUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && remoteUser.id.startsWith('fb-invite-')) {
-              map.set(key, {
-                ...remoteUser,
-                id: u.id
-              });
+              finalId = u.id;
             }
+            
+            const finalUser = {
+              ...remoteUser,
+              id: finalId
+            };
+            
+            // Re-apply the active edit on top of merged remote/local just in case
+            if (editedUsers && editedUsers.has(key)) {
+              const edit = editedUsers.get(key)!;
+              finalUser.role = edit.role;
+              finalUser.name = edit.name;
+              finalUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
+            }
+            
+            map.set(key, finalUser);
           }
         }
       }
@@ -265,6 +300,9 @@ export default function App() {
 
   // Keep track of users explicitly deleted by the Master to prevent them from being brought back in snap merges
   const deletedUsernamesRef = useRef<Set<string>>(new Set<string>());
+
+  // Keep track of active role/name modifications to prevent in-flight Firestore snapshots from reverting edits
+  const editedUsersRef = useRef<Map<string, { role: UserRole; name: string }>>(new Map());
 
   // Connection and loading states
   const [isConnectingAuth, setIsConnectingAuth] = useState<boolean>(() => {
@@ -486,7 +524,23 @@ export default function App() {
                   }
                   const emailLower = fbUser.email?.toLowerCase().trim() || '';
                   if (savedState.users && Array.isArray(savedState.users)) {
-                    updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
+                    // Clear pending edit flags if the remote state has caught up with our local edit
+                    savedState.users.forEach((remoteUser: any) => {
+                      if (remoteUser && remoteUser.username) {
+                        const key = remoteUser.username.toLowerCase().trim();
+                        const pendingEdit = editedUsersRef.current.get(key);
+                        if (pendingEdit && remoteUser.role === pendingEdit.role && remoteUser.name === pendingEdit.name) {
+                          editedUsersRef.current.delete(key);
+                        }
+                      }
+                    });
+
+                    updatedState.users = mergeUsers(
+                      current.users || [], 
+                      savedState.users, 
+                      deletedUsernamesRef.current,
+                      editedUsersRef.current
+                    );
                   }
 
                   // Check if currently authenticated user email's role has changed in the user list
@@ -825,7 +879,23 @@ export default function App() {
             updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
           }
           if (savedState.users && Array.isArray(savedState.users)) {
-            updatedState.users = mergeUsers(current.users || [], savedState.users, deletedUsernamesRef.current);
+            // Clear pending edit flags if the remote state has caught up with our local edit
+            savedState.users.forEach((remoteUser: any) => {
+              if (remoteUser && remoteUser.username) {
+                const key = remoteUser.username.toLowerCase().trim();
+                const pendingEdit = editedUsersRef.current.get(key);
+                if (pendingEdit && remoteUser.role === pendingEdit.role && remoteUser.name === pendingEdit.name) {
+                  editedUsersRef.current.delete(key);
+                }
+              }
+            });
+
+            updatedState.users = mergeUsers(
+              current.users || [], 
+              savedState.users, 
+              deletedUsernamesRef.current,
+              editedUsersRef.current
+            );
           }
 
           // Force check authenticated user
@@ -2045,20 +2115,36 @@ export default function App() {
                 users={state.users}
                 currentUser={state.currentUser}
                 onUpdateUsersList={(updatedUsers) => {
-                  // Find and track any user who was removed by the administrator
                   const currentEmails = new Set(updatedUsers.map(u => u && u.username ? u.username.toLowerCase().trim() : ''));
+                  
+                  // Find and track any user who was removed by the administrator
                   state.users.forEach(u => {
                     if (u && u.username) {
                       const emailClean = u.username.toLowerCase().trim();
                       if (!currentEmails.has(emailClean)) {
                         deletedUsernamesRef.current.add(emailClean);
+                        editedUsersRef.current.delete(emailClean);
                       }
                     }
                   });
-                  // Un-blacklist any active/re-added user email to allow clean re-invites and logins!
+                  
+                  // Find and track any user who was edited (role/name) or newly added/invited
                   updatedUsers.forEach(u => {
                     if (u && u.username) {
-                      deletedUsernamesRef.current.delete(u.username.toLowerCase().trim());
+                      const emailClean = u.username.toLowerCase().trim();
+                      
+                      // Remove from deleted whitelist since they are now part of active users list
+                      deletedUsernamesRef.current.delete(emailClean);
+                      
+                      const existing = state.users.find(oldU => oldU && oldU.username && oldU.username.toLowerCase().trim() === emailClean);
+                      if (existing) {
+                        if (existing.role !== u.role || existing.name !== u.name) {
+                          editedUsersRef.current.set(emailClean, { role: u.role, name: u.name });
+                        }
+                      } else {
+                        // Pre-registered new invite or newly added user
+                        editedUsersRef.current.set(emailClean, { role: u.role, name: u.name });
+                      }
                     }
                   });
                   
