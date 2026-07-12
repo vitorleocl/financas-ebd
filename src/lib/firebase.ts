@@ -111,13 +111,7 @@ export async function saveStateToFirestore(
           const remoteData = docSnap.data();
           const remoteUsers = remoteData.users || [];
           
-          // Build set of active local user emails to ensure we don't accidentally filter them out!
-          const activeLocalEmails = new Set((stateData.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
-
-          // Merge local and remote users safely
-          const map = new Map<string, any>();
-          
-          // Build deleted emails list, but EXCLUDE any email that is currently in our active local users list!
+          // Build set of deleted emails
           const deletedSet = new Set<string>();
           const rawDeleted = [
             ...(remoteData.deletedEmails || []),
@@ -125,24 +119,32 @@ export async function saveStateToFirestore(
           ];
           rawDeleted.forEach((e: string) => {
             if (e) {
-              const emailClean = e.toLowerCase().trim();
-              if (!activeLocalEmails.has(emailClean)) {
-                deletedSet.add(emailClean);
-              }
+              deletedSet.add(e.toLowerCase().trim());
             }
           });
+
+          // Helper to safely find custom administrative edits case-insensitively
+          const getPendingEdit = (email: string) => {
+            if (!editedUsers) return null;
+            const clean = email.toLowerCase().trim();
+            const foundKey = Object.keys(editedUsers).find(k => k.toLowerCase().trim() === clean);
+            return foundKey ? editedUsers[foundKey] : null;
+          };
+
+          const map = new Map<string, any>();
           
-          // 1. Populate map with remote users first (these are authoritative)
-          remoteUsers.forEach((u: any) => {
+          // 1. First, populate map with the local users list (contains latest admin updates and role assignments)
+          mergedUsers.forEach((u: any) => {
             if (u && u.username) {
               const key = u.username.toLowerCase().trim();
               if (!deletedSet.has(key)) {
                 let mergedUser = { ...u };
                 
-                // If there is an active local administrative edit, apply it!
-                if (editedUsers && editedUsers[key]) {
-                  mergedUser.role = editedUsers[key].role;
-                  mergedUser.name = editedUsers[key].name;
+                // If there's an active local edit passed explicitly, apply it just in case
+                const edit = getPendingEdit(key);
+                if (edit) {
+                  mergedUser.role = edit.role;
+                  mergedUser.name = edit.name;
                   mergedUser.avatarColor = mergedUser.role === 'MASTER' ? 'bg-indigo-900' : mergedUser.role === 'TESOUREIRO' ? 'bg-blue-600' : mergedUser.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
                 }
                 
@@ -151,41 +153,21 @@ export async function saveStateToFirestore(
             }
           });
           
-          // 2. Put local users in second ONLY if they do NOT exist in remote (new registrations/invites)
-          mergedUsers.forEach((u: any) => {
+          // 2. Second, merge remote users that are NOT present in local state (concurrent registrations/invites)
+          remoteUsers.forEach((u: any) => {
             if (u && u.username) {
               const key = u.username.toLowerCase().trim();
               if (!deletedSet.has(key)) {
                 if (!map.has(key)) {
-                  let mergedUser = { ...u };
-                  
-                  // Apply active local edit if any
-                  if (editedUsers && editedUsers[key]) {
-                    mergedUser.role = editedUsers[key].role;
-                    mergedUser.name = editedUsers[key].name;
-                    mergedUser.avatarColor = mergedUser.role === 'MASTER' ? 'bg-indigo-900' : mergedUser.role === 'TESOUREIRO' ? 'bg-blue-600' : mergedUser.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
-                  }
-                  
-                  map.set(key, mergedUser);
+                  // This is a concurrent registration from another device that hasn't synced locally yet
+                  map.set(key, u);
                 } else {
-                  // If they exist in remote, do NOT overwrite their role/name with stale local values!
-                  // Keep remote as authoritative, EXCEPT if there's an active local administrative edit,
-                  // or if we are upgrading a pre-registered invite ID (fb-invite-) to a real UID (fb-).
-                  const remoteUser = map.get(key);
-                  let finalUser = { ...remoteUser };
-                  
-                  // ID upgrade
-                  if (u.id !== remoteUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && remoteUser.id.startsWith('fb-invite-')) {
-                    finalUser.id = u.id;
+                  // If they exist in both, we keep the local version (with its updated role), but we can upgrade IDs if needed
+                  const localUser = map.get(key);
+                  if (u.id !== localUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && localUser.id.startsWith('fb-invite-')) {
+                    localUser.id = u.id;
+                    map.set(key, localUser);
                   }
-                  
-                  if (editedUsers && editedUsers[key]) {
-                    finalUser.role = editedUsers[key].role;
-                    finalUser.name = editedUsers[key].name;
-                    finalUser.avatarColor = finalUser.role === 'MASTER' ? 'bg-indigo-900' : finalUser.role === 'TESOUREIRO' ? 'bg-blue-600' : finalUser.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
-                  }
-                  
-                  map.set(key, finalUser);
                 }
               }
             }

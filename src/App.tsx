@@ -74,6 +74,18 @@ const mergeUsers = (
 ): any[] => {
   const map = new Map<string, any>();
   
+  // Helper to find pending edits case-insensitively in the Map
+  const getPendingEdit = (email: string) => {
+    if (!editedUsers) return null;
+    const clean = email.toLowerCase().trim();
+    for (const [k, v] of editedUsers.entries()) {
+      if (k.toLowerCase().trim() === clean) {
+        return v;
+      }
+    }
+    return null;
+  };
+
   // 1. Put remote users in first (they are the absolute source of truth for any loaded database snapshot)
   if (Array.isArray(remote)) {
     remote.forEach(u => {
@@ -82,8 +94,8 @@ const mergeUsers = (
         if (!deletedUsernames || !deletedUsernames.has(key)) {
           let mergedUser = { ...u };
           // Prioritize active administrative edits over the remote snapshot
-          if (editedUsers && editedUsers.has(key)) {
-            const edit = editedUsers.get(key)!;
+          const edit = getPendingEdit(key);
+          if (edit) {
             mergedUser.role = edit.role;
             mergedUser.name = edit.name;
             mergedUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
@@ -102,8 +114,8 @@ const mergeUsers = (
         if (!deletedUsernames || !deletedUsernames.has(key)) {
           if (!map.has(key)) {
             let mergedUser = { ...u };
-            if (editedUsers && editedUsers.has(key)) {
-              const edit = editedUsers.get(key)!;
+            const edit = getPendingEdit(key);
+            if (edit) {
               mergedUser.role = edit.role;
               mergedUser.name = edit.name;
               mergedUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
@@ -127,8 +139,8 @@ const mergeUsers = (
             };
             
             // Re-apply the active edit on top of merged remote/local just in case
-            if (editedUsers && editedUsers.has(key)) {
-              const edit = editedUsers.get(key)!;
+            const edit = getPendingEdit(key);
+            if (edit) {
               finalUser.role = edit.role;
               finalUser.name = edit.name;
               finalUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
