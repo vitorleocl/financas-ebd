@@ -218,10 +218,14 @@ const registerUserProfileInFirestore = async (fbUser: any): Promise<void> => {
       emailLower === 'vitorleonardoc@gmail.com' || 
       emailLower === 'vitorleonardocl@gmail.com' || 
       emailLower === 'vitorleonardocl@gmail.com.br' ||
-      emailLower === 'vlcl@poli.br'
+      emailLower === 'vlcl@poli.br' ||
+      emailLower === 'eduardasoares86617@gmail.com'
     ) {
       assignedRole = 'MASTER';
-      displayName = 'Vitor Leonardo';
+      displayName = emailLower === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+    } else if (emailLower === 'marcoswlima.adv@gmail.com') {
+      assignedRole = 'DIRIGENTE';
+      displayName = 'Marcos Lima';
     }
 
     const newUserProfile = {
@@ -441,10 +445,14 @@ export default function App() {
           emailLower === 'vitorleonardoc@gmail.com' || 
           emailLower === 'vitorleonardocl@gmail.com' || 
           emailLower === 'vitorleonardocl@gmail.com.br' ||
-          emailLower === 'vlcl@poli.br'
+          emailLower === 'vlcl@poli.br' ||
+          emailLower === 'eduardasoares86617@gmail.com'
         ) {
           assignedRole = 'MASTER';
-          userDisplayName = 'Vitor Leonardo';
+          userDisplayName = emailLower === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+        } else if (emailLower === 'marcoswlima.adv@gmail.com') {
+          assignedRole = 'DIRIGENTE';
+          userDisplayName = 'Marcos Lima';
         }
 
         setState(current => {
@@ -498,10 +506,14 @@ export default function App() {
                   emailLowerForReg === 'vitorleonardoc@gmail.com' || 
                   emailLowerForReg === 'vitorleonardocl@gmail.com' || 
                   emailLowerForReg === 'vitorleonardocl@gmail.com.br' ||
-                  emailLowerForReg === 'vlcl@poli.br'
+                  emailLowerForReg === 'vlcl@poli.br' ||
+                  emailLowerForReg === 'eduardasoares86617@gmail.com'
                 ) {
                   assignedRoleForReg = 'MASTER';
-                  displayNameForReg = 'Vitor Leonardo';
+                  displayNameForReg = emailLowerForReg === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+                } else if (emailLowerForReg === 'marcoswlima.adv@gmail.com') {
+                  assignedRoleForReg = 'DIRIGENTE';
+                  displayNameForReg = 'Marcos Lima';
                 }
 
                 if (!isAlreadyRegisteredInFirestore && emailLowerForReg && (!isDeletedForReg || assignedRoleForReg === 'MASTER')) {
@@ -600,10 +612,14 @@ export default function App() {
                     emailLower === 'vitorleonardoc@gmail.com' || 
                     emailLower === 'vitorleonardocl@gmail.com' || 
                     emailLower === 'vitorleonardocl@gmail.com.br' ||
-                    emailLower === 'vlcl@poli.br'
+                    emailLower === 'vlcl@poli.br' ||
+                    emailLower === 'eduardasoares86617@gmail.com'
                   ) {
                     assignedRole = 'MASTER';
-                    userDisplayName = 'Vitor Leonardo';
+                    userDisplayName = emailLower === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+                  } else if (emailLower === 'marcoswlima.adv@gmail.com') {
+                    assignedRole = 'DIRIGENTE';
+                    userDisplayName = 'Marcos Lima';
                   }
 
                   const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
@@ -684,10 +700,14 @@ export default function App() {
                     emailLower === 'vitorleonardoc@gmail.com' || 
                     emailLower === 'vitorleonardocl@gmail.com' || 
                     emailLower === 'vitorleonardocl@gmail.com.br' ||
-                    emailLower === 'vlcl@poli.br'
+                    emailLower === 'vlcl@poli.br' ||
+                    emailLower === 'eduardasoares86617@gmail.com'
                   ) {
                     assignedRole = 'MASTER';
-                    userDisplayName = 'Vitor Leonardo';
+                    userDisplayName = emailLower === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+                  } else if (emailLower === 'marcoswlima.adv@gmail.com') {
+                    assignedRole = 'DIRIGENTE';
+                    userDisplayName = 'Marcos Lima';
                   }
 
                   const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
@@ -963,10 +983,14 @@ export default function App() {
               emailLower === 'vitorleonardoc@gmail.com' || 
               emailLower === 'vitorleonardocl@gmail.com' || 
               emailLower === 'vitorleonardocl@gmail.com.br' ||
-              emailLower === 'vlcl@poli.br'
+              emailLower === 'vlcl@poli.br' ||
+              emailLower === 'eduardasoares86617@gmail.com'
             ) {
               assignedRole = 'MASTER';
-              userDisplayName = 'Vitor Leonardo';
+              userDisplayName = emailLower === 'eduardasoares86617@gmail.com' ? 'Eduarda Soares' : 'Vitor Leonardo';
+            } else if (emailLower === 'marcoswlima.adv@gmail.com') {
+              assignedRole = 'DIRIGENTE';
+              userDisplayName = 'Marcos Lima';
             }
 
             const registeredUserIndex = updatedState.users.findIndex(u => u && u.username && u.username.toLowerCase().trim() === emailLower);
@@ -1100,15 +1124,32 @@ export default function App() {
   const handleFirebaseLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    const emailClean = firebaseEmail.trim().toLowerCase();
+    const pass = firebasePassword;
     try {
-      await signInWithEmailAndPassword(auth, firebaseEmail, firebasePassword);
-      // O listener central onAuthStateChanged + onSnapshot irá carregar automaticamente os dados
-      // do Firestore e configurar o currentUser com o cargo (role) correto.
+      try {
+        await signInWithEmailAndPassword(auth, emailClean, pass);
+      } catch (loginErr: any) {
+        // Automatically register standard testing users with default password
+        const isMarcos = emailClean === 'marcoswlima.adv@gmail.com' && pass === '102030';
+        const isEduarda = emailClean === 'eduardasoares86617@gmail.com' && pass === '102030';
+        if (isMarcos || isEduarda) {
+          console.log(`[Firebase Login] Auto-registering default account ${emailClean}...`);
+          const userCredential = await createUserWithEmailAndPassword(auth, emailClean, pass);
+          if (userCredential.user) {
+            await updateProfile(userCredential.user, {
+              displayName: isMarcos ? 'Marcos Lima' : 'Eduarda Soares'
+            });
+          }
+        } else {
+          throw loginErr;
+        }
+      }
       setFirebaseEmail('');
       setFirebasePassword('');
     } catch (error: any) {
       console.error(error);
-      setLoginError(`Erro de Autenticação Firebase: ${getFriendlyFirebaseError(error.code || error.message)}`);
+      setLoginError(`Erro de Autenticação: ${getFriendlyFirebaseError(error.code || error.message)}`);
     }
   };
 
@@ -1568,7 +1609,7 @@ export default function App() {
             <div className="space-y-4 font-semibold text-xs animate-fade-in">
                 {/* Firebase form mode toggle */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-[9px] text-slate-400 font-bold uppercase">
-                  <span>Modo Firebase</span>
+                  <span>Acesso Online</span>
                   <div className="flex gap-3">
                     <button 
                       type="button"
@@ -1590,7 +1631,7 @@ export default function App() {
                 {firebaseAuthMode === 'LOGIN' ? (
                   <form onSubmit={handleFirebaseLogin} className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-slate-600 uppercase tracking-widest block text-[10px]">E-mail Firebase</label>
+                      <label className="text-slate-600 uppercase tracking-widest block text-[10px]">E-mail</label>
                       <input
                         type="email"
                         required
@@ -1602,7 +1643,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-slate-650 uppercase tracking-widest block text-[10px]">Senha Firebase</label>
+                      <label className="text-slate-650 uppercase tracking-widest block text-[10px]">Senha</label>
                       <input
                         type="password"
                         required
@@ -1618,7 +1659,7 @@ export default function App() {
                       className="w-full bg-indigo-600 hover:bg-indigo-700 border border-indigo-600 text-white rounded-xl py-3.5 text-center font-bold text-xs shadow-md shadow-indigo-100 transition-all cursor-pointer active:scale-[0.98] mt-2 flex items-center justify-center gap-1.5"
                     >
                       <Cloud className="w-4 h-4" />
-                      Acessar com Firebase
+                      Entrar
                     </button>
                   </form>
                 ) : (
@@ -1663,8 +1704,8 @@ export default function App() {
                       type="submit"
                       className="w-full bg-indigo-600 hover:bg-indigo-700 border border-indigo-600 text-white rounded-xl py-3 text-center font-bold text-xs shadow-md transition-all cursor-pointer active:scale-[0.98] mt-2 flex items-center justify-center gap-1.5"
                     >
-                      <PlusCircle className="w-4 h-4 animation-pulse" />
-                      Criar Conta Firebase
+                      <PlusCircle className="w-4 h-4" />
+                      Criar Conta
                     </button>
                   </form>
                 )}
