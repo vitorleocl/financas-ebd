@@ -385,21 +385,6 @@ export default function App() {
               if (docSnap.exists()) {
                 const savedState = docSnap.data();
 
-                // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
-                if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
-                  const activeLocalEmails = new Set((state.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
-                  savedState.deletedEmails.forEach((e: string) => {
-                    if (e) {
-                      const emailClean = e.toLowerCase().trim();
-                      if (!activeLocalEmails.has(emailClean)) {
-                        deletedUsernamesRef.current.add(emailClean);
-                      } else {
-                        deletedUsernamesRef.current.delete(emailClean);
-                      }
-                    }
-                  });
-                }
-
                 // Atomic registration guard to guarantee new logins are recorded in Firestore immediately
                 const emailLowerForReg = fbUser.email?.toLowerCase().trim() || '';
                 const remoteUsersForReg = savedState.users || [];
@@ -441,6 +426,21 @@ export default function App() {
 
                 setState(current => {
                   const updatedState = { ...current };
+
+                  // Track deleted emails from Firestore using the most up-to-date 'current.users' list!
+                  if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
+                    const activeLocalEmails = new Set((current.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
+                    savedState.deletedEmails.forEach((e: string) => {
+                      if (e) {
+                        const emailClean = e.toLowerCase().trim();
+                        if (!activeLocalEmails.has(emailClean)) {
+                          deletedUsernamesRef.current.add(emailClean);
+                        } else {
+                          deletedUsernamesRef.current.delete(emailClean);
+                        }
+                      }
+                    });
+                  }
                   
                   // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
                   if (savedState.boxes && Array.isArray(savedState.boxes)) {
@@ -706,16 +706,7 @@ export default function App() {
       }, 800); // debounce saves to prevent spamming
       return () => clearTimeout(timer);
     }
-  }, [
-    state.transactions, 
-    state.boxes, 
-    state.closings, 
-    state.people, 
-    state.categories, 
-    state.auditLogs, 
-    state.users,
-    state.currentUser?.id
-  ]);
+  }, [state]);
 
   // Handle local system backups
   const handleDownloadBackup = () => {
@@ -785,24 +776,24 @@ export default function App() {
         
         // Mark as loaded from Firestore successfully since we got a valid response
         hasLoadedFromFirestoreRef.current = true;
-
-        // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
-        if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
-          const activeLocalEmails = new Set((state.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
-          savedState.deletedEmails.forEach((e: string) => {
-            if (e) {
-              const emailClean = e.toLowerCase().trim();
-              if (!activeLocalEmails.has(emailClean)) {
-                deletedUsernamesRef.current.add(emailClean);
-              } else {
-                deletedUsernamesRef.current.delete(emailClean);
-              }
-            }
-          });
-        }
         
         setState(current => {
           const updatedState = { ...current };
+
+          // Track deleted emails from Firestore to make sure they are persistently filtered across all connected devices!
+          if (savedState.deletedEmails && Array.isArray(savedState.deletedEmails)) {
+            const activeLocalEmails = new Set((current.users || []).map((u: any) => u && u.username ? u.username.toLowerCase().trim() : ''));
+            savedState.deletedEmails.forEach((e: string) => {
+              if (e) {
+                const emailClean = e.toLowerCase().trim();
+                if (!activeLocalEmails.has(emailClean)) {
+                  deletedUsernamesRef.current.add(emailClean);
+                } else {
+                  deletedUsernamesRef.current.delete(emailClean);
+                }
+              }
+            });
+          }
           
           // Merge all entities safely
           if (savedState.boxes && Array.isArray(savedState.boxes)) {

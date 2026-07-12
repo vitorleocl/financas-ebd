@@ -165,9 +165,48 @@ export async function saveStateToFirestore(userId: string, stateData: any, delet
         finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
       }
 
+      // Ensure box balances are 100% mathematically correct based on transactions being saved
+      let finalBoxes = stateData.boxes || [];
+      if (Array.isArray(finalBoxes)) {
+        const txs = stateData.transactions || [];
+        finalBoxes = finalBoxes.map((box: any) => {
+          if (!box) return box;
+          const boxTransactions = txs.filter((t: any) => {
+            if (!t) return false;
+            let bid = t.boxId;
+            if (!bid) {
+              if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+                  (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+                bid = 'CAIXA_LICOES';
+              } else {
+                bid = 'CAIXA_5_EBD';
+              }
+            }
+            return bid === box.id;
+          });
+          const baseBalance = box.initialBalance || 0;
+          const balance = boxTransactions.reduce((acc: number, t: any) => {
+            if (t && t.isApproved !== false) {
+              const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+              if (t.type === 'ENTRADA') {
+                return acc + amt;
+              } else {
+                return acc - amt;
+              }
+            }
+            return acc;
+          }, baseBalance);
+          return {
+            ...box,
+            balance: parseFloat(balance.toFixed(2))
+          };
+        });
+      }
+
       // Ensure currentUser is null so credentials/local sessions are kept local
       const stateToSave = {
         ...stateData,
+        boxes: finalBoxes,
         users: mergedUsers,
         deletedEmails: finalDeletedEmails,
         currentUser: null,

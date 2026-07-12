@@ -24,6 +24,7 @@ export default function UsersManagement({
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('VISITANTE');
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   
   // Local syncing states
   const [syncing, setSyncing] = useState(false);
@@ -110,14 +111,19 @@ export default function UsersManagement({
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser) return;
 
-    if (window.confirm(`Tem certeza que deseja remover o usuário ${targetUser.name} (${targetUser.username})?`)) {
-      const filtered = users.filter(u => u.id !== userId);
-      onUpdateUsersList(filtered);
-      onLogAudit(
-        'Remoção de Usuário',
-        `Removeu o perfil de acesso do usuário ${targetUser.name} (${targetUser.username}) do sistema.`
-      );
-    }
+    setUserToDelete(targetUser);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!userToDelete) return;
+
+    const filtered = users.filter(u => u.id !== userToDelete.id);
+    onUpdateUsersList(filtered);
+    onLogAudit(
+      'Remoção de Usuário',
+      `Removeu o perfil de acesso do usuário ${userToDelete.name} (${userToDelete.username}) do sistema.`
+    );
+    setUserToDelete(null);
   };
 
   // Add new user configuration
@@ -665,6 +671,44 @@ export default function UsersManagement({
           <span>Como Administrador Master, qualquer mudança de cargo ou ajuste efetuado reflete instantaneamente nos próximos logins do Firebase, e todas as ações ficam registradas no diário de auditoria imutável.</span>
         </div>
       </div>
+
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-150 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-red-100 text-red-600 rounded-full shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Remover Acesso do Usuário?</h3>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  Tem certeza de que deseja remover permanentemente o perfil de acesso do colaborador <strong className="text-slate-800">{userToDelete.name}</strong> (<span className="text-slate-700 font-mono">{userToDelete.username}</span>)? 
+                </p>
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  Esta ação impedirá logins futuros para este e-mail, e o usuário será retirado da listagem de controle ativa imediatamente.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow-sm transition-colors cursor-pointer"
+              >
+                Confirmar Exclusão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
