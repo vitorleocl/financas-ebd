@@ -1298,8 +1298,6 @@ export default function App() {
       : 1000;
     const nextCode = `TX-${lastNum + 1}`;
 
-    const isAuthorizedApprover = updatedState.currentUser?.role === 'MASTER' || updatedState.currentUser?.role === 'DIRIGENTE';
-
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       transactionNum: nextCode,
@@ -1313,9 +1311,9 @@ export default function App() {
       responsible: updatedState.currentUser?.name || 'Tesoureiro',
       signature: data.signature,
       createdAt: new Date().toISOString(),
-      isApproved: isAuthorizedApprover, // Auto-approve if created by a Dirigente or Master
-      approvedBy: isAuthorizedApprover ? (updatedState.currentUser?.name || 'Sistema') : undefined,
-      approvedAt: isAuthorizedApprover ? new Date().toISOString() : undefined,
+      isApproved: false, // All new transactions require seen/visto/approval before posting to caixa
+      approvedBy: undefined,
+      approvedAt: undefined,
       attachment: data.attachment
     };
 
@@ -1328,10 +1326,8 @@ export default function App() {
     // Check if the current submitter is 'TESOUREIRO' or 'SECRETARIA' and update logs
     addAuditLog(
       updatedState,
-      isAuthorizedApprover ? 'Inclusão de Movimentação Aprovada' : 'Inclusão de Movimentação',
-      isAuthorizedApprover 
-        ? `Cadastrou e auto-aprovou ${data.type.toLowerCase()} ${nextCode} de R$ ${data.amount.toFixed(2)}.`
-        : `Cadastrou ${data.type.toLowerCase()} ${nextCode} de R$ ${data.amount.toFixed(2)} pendente de aprovacao.`
+      'Inclusão de Movimentação',
+      `Cadastrou ${data.type.toLowerCase()} ${nextCode} de R$ ${data.amount.toFixed(2)} pendente de visto eletrônico.`
     );
 
     setState(updatedState);
