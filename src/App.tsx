@@ -548,7 +548,7 @@ export default function App() {
                     saveAdministrativeRefs();
                   }
                   
-                  // Read and track deleted ID lists to prevent deleted items from returning during snapshot merges
+                  // Read and track deleted ID lists to keep types/states aligned
                   const deletedTxIds = new Set<string>(savedState.deletedTransactionIds || []);
                   const deletedCId = new Set<string>(savedState.deletedClosingIds || []);
                   const deletedPId = new Set<string>(savedState.deletedPeopleIds || []);
@@ -567,42 +567,35 @@ export default function App() {
                   updatedState.deletedClosingIds = Array.from(deletedCId);
                   updatedState.deletedPeopleIds = Array.from(deletedPId);
 
-                  // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
-                  if (savedState.boxes && Array.isArray(savedState.boxes)) {
-                    updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
-                  }
+                  // Set lists directly from the Firestore remote source of truth, completely eliminating resurrection bugs!
                   if (savedState.categories && Array.isArray(savedState.categories)) {
-                    const mergedCats = mergeArraysById(current.categories || [], savedState.categories);
-                    // Ensure all INITIAL_CATEGORIES are present in the list
-                    INITIAL_CATEGORIES.forEach((initCat: any) => {
-                      if (!mergedCats.some(c => c.id === initCat.id)) {
-                        mergedCats.push(initCat);
-                      }
-                    });
-                    updatedState.categories = mergedCats;
+                    updatedState.categories = [...savedState.categories];
                   }
+                  // Ensure all INITIAL_CATEGORIES are present in the list
+                  INITIAL_CATEGORIES.forEach((initCat: any) => {
+                    if (!updatedState.categories.some(c => c.id === initCat.id)) {
+                      updatedState.categories.push(initCat);
+                    }
+                  });
+
                   if (savedState.transactions && Array.isArray(savedState.transactions)) {
-                    const filteredRemote = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
-                    const filteredLocal = (current.transactions || []).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
-                    updatedState.transactions = mergeAndSortTransactions(filteredLocal, filteredRemote);
+                    updatedState.transactions = [...savedState.transactions];
                   }
                   
-                  // Recalculate box balances automatically based on the newly merged transactions list
-                  updatedState.boxes = recalculateBalances(updatedState);
-
                   if (savedState.people && Array.isArray(savedState.people)) {
-                    const filteredRemote = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
-                    const filteredLocal = (current.people || []).filter((p: any) => p && p.id && !deletedPId.has(p.id));
-                    updatedState.people = mergeArraysById(filteredLocal, filteredRemote);
+                    updatedState.people = [...savedState.people];
                   }
+
                   if (savedState.closings && Array.isArray(savedState.closings)) {
-                    const filteredRemote = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
-                    const filteredLocal = (current.closings || []).filter((c: any) => c && c.id && !deletedCId.has(c.id));
-                    updatedState.closings = mergeClosings(filteredLocal, filteredRemote);
+                    updatedState.closings = [...savedState.closings];
                   }
+
                   if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
-                    updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
+                    updatedState.auditLogs = [...savedState.auditLogs];
                   }
+
+                  // Recalculate box balances automatically based on the remote transactions list to ensure 100% mathematical consistency
+                  updatedState.boxes = recalculateBalances(updatedState);
                   const emailLower = fbUser.email?.toLowerCase().trim() || '';
                   if (savedState.users && Array.isArray(savedState.users)) {
                     // Clear pending edit flags if the remote state has caught up with our local edit
@@ -950,7 +943,7 @@ export default function App() {
             saveAdministrativeRefs();
           }
           
-          // Read and track deleted ID lists to prevent deleted items from returning during snapshot merges
+          // Read and track deleted ID lists to keep types/states aligned
           const deletedTxIds = new Set<string>(savedState.deletedTransactionIds || []);
           const deletedCId = new Set<string>(savedState.deletedClosingIds || []);
           const deletedPId = new Set<string>(savedState.deletedPeopleIds || []);
@@ -969,35 +962,35 @@ export default function App() {
           updatedState.deletedClosingIds = Array.from(deletedCId);
           updatedState.deletedPeopleIds = Array.from(deletedPId);
 
-          // Merge all entities safely
-          if (savedState.boxes && Array.isArray(savedState.boxes)) {
-            updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
-          }
+          // Set lists directly from the Firestore remote source of truth, completely eliminating resurrection bugs!
           if (savedState.categories && Array.isArray(savedState.categories)) {
-            updatedState.categories = mergeArraysById(current.categories || [], savedState.categories);
+            updatedState.categories = [...savedState.categories];
           }
+          // Ensure all INITIAL_CATEGORIES are present in the list
+          INITIAL_CATEGORIES.forEach((initCat: any) => {
+            if (!updatedState.categories.some(c => c.id === initCat.id)) {
+              updatedState.categories.push(initCat);
+            }
+          });
+
           if (savedState.transactions && Array.isArray(savedState.transactions)) {
-            const filteredRemote = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
-            const filteredLocal = (current.transactions || []).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
-            updatedState.transactions = mergeAndSortTransactions(filteredLocal, filteredRemote);
+            updatedState.transactions = [...savedState.transactions];
           }
           
-          // Recalculate balances automatically from merged transactions
-          updatedState.boxes = recalculateBalances(updatedState);
-
           if (savedState.people && Array.isArray(savedState.people)) {
-            const filteredRemote = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
-            const filteredLocal = (current.people || []).filter((p: any) => p && p.id && !deletedPId.has(p.id));
-            updatedState.people = mergeArraysById(filteredLocal, filteredRemote);
+            updatedState.people = [...savedState.people];
           }
+
           if (savedState.closings && Array.isArray(savedState.closings)) {
-            const filteredRemote = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
-            const filteredLocal = (current.closings || []).filter((c: any) => c && c.id && !deletedCId.has(c.id));
-            updatedState.closings = mergeClosings(filteredLocal, filteredRemote);
+            updatedState.closings = [...savedState.closings];
           }
+
           if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
-            updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
+            updatedState.auditLogs = [...savedState.auditLogs];
           }
+
+          // Recalculate box balances automatically based on the remote transactions list to ensure 100% mathematical consistency
+          updatedState.boxes = recalculateBalances(updatedState);
           if (savedState.users && Array.isArray(savedState.users)) {
             // Clear pending edit flags if the remote state has caught up with our local edit
             let clearedAnyEdit = false;
