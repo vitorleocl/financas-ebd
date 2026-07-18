@@ -579,15 +579,15 @@ export default function App() {
                   });
 
                   if (savedState.transactions && Array.isArray(savedState.transactions)) {
-                    updatedState.transactions = [...savedState.transactions];
+                    updatedState.transactions = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
                   }
                   
                   if (savedState.people && Array.isArray(savedState.people)) {
-                    updatedState.people = [...savedState.people];
+                    updatedState.people = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
                   }
 
                   if (savedState.closings && Array.isArray(savedState.closings)) {
-                    updatedState.closings = [...savedState.closings];
+                    updatedState.closings = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
                   }
 
                   if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
@@ -974,15 +974,15 @@ export default function App() {
           });
 
           if (savedState.transactions && Array.isArray(savedState.transactions)) {
-            updatedState.transactions = [...savedState.transactions];
+            updatedState.transactions = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
           }
           
           if (savedState.people && Array.isArray(savedState.people)) {
-            updatedState.people = [...savedState.people];
+            updatedState.people = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
           }
 
           if (savedState.closings && Array.isArray(savedState.closings)) {
-            updatedState.closings = [...savedState.closings];
+            updatedState.closings = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
           }
 
           if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
