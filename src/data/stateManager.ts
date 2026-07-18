@@ -27,6 +27,9 @@ export interface AppState {
   people: Person[];
   closings: WeeklyClosing[];
   auditLogs: AuditLog[];
+  deletedTransactionIds?: string[];
+  deletedClosingIds?: string[];
+  deletedPeopleIds?: string[];
 }
 
 const STORAGE_KEY = 'ebd_financial_system_state_v1';
@@ -66,7 +69,10 @@ export function getInitialState(): AppState {
         transactions: parsed.transactions || INITIAL_TRANSACTIONS,
         people: parsed.people || INITIAL_PEOPLE,
         closings: parsed.closings || INITIAL_CLOSINGS,
-        auditLogs: parsed.auditLogs || INITIAL_AUDIT_LOGS
+        auditLogs: parsed.auditLogs || INITIAL_AUDIT_LOGS,
+        deletedTransactionIds: parsed.deletedTransactionIds || [],
+        deletedClosingIds: parsed.deletedClosingIds || [],
+        deletedPeopleIds: parsed.deletedPeopleIds || []
       };
     } catch (e) {
       console.error("Failed to parse EBD financial state, resetting to defaults", e);
@@ -81,7 +87,10 @@ export function getInitialState(): AppState {
     transactions: INITIAL_TRANSACTIONS,
     people: INITIAL_PEOPLE,
     closings: INITIAL_CLOSINGS,
-    auditLogs: INITIAL_AUDIT_LOGS
+    auditLogs: INITIAL_AUDIT_LOGS,
+    deletedTransactionIds: [],
+    deletedClosingIds: [],
+    deletedPeopleIds: []
   };
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState));

@@ -548,6 +548,25 @@ export default function App() {
                     saveAdministrativeRefs();
                   }
                   
+                  // Read and track deleted ID lists to prevent deleted items from returning during snapshot merges
+                  const deletedTxIds = new Set<string>(savedState.deletedTransactionIds || []);
+                  const deletedCId = new Set<string>(savedState.deletedClosingIds || []);
+                  const deletedPId = new Set<string>(savedState.deletedPeopleIds || []);
+
+                  if (current.deletedTransactionIds) {
+                    current.deletedTransactionIds.forEach(id => deletedTxIds.add(id));
+                  }
+                  if (current.deletedClosingIds) {
+                    current.deletedClosingIds.forEach(id => deletedCId.add(id));
+                  }
+                  if (current.deletedPeopleIds) {
+                    current.deletedPeopleIds.forEach(id => deletedPId.add(id));
+                  }
+
+                  updatedState.deletedTransactionIds = Array.from(deletedTxIds);
+                  updatedState.deletedClosingIds = Array.from(deletedCId);
+                  updatedState.deletedPeopleIds = Array.from(deletedPId);
+
                   // Merge lists instead of overwriting, preventing any data loss or duplicates between devices!
                   if (savedState.boxes && Array.isArray(savedState.boxes)) {
                     updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
@@ -563,17 +582,23 @@ export default function App() {
                     updatedState.categories = mergedCats;
                   }
                   if (savedState.transactions && Array.isArray(savedState.transactions)) {
-                    updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
+                    const filteredRemote = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+                    const filteredLocal = (current.transactions || []).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+                    updatedState.transactions = mergeAndSortTransactions(filteredLocal, filteredRemote);
                   }
                   
                   // Recalculate box balances automatically based on the newly merged transactions list
                   updatedState.boxes = recalculateBalances(updatedState);
 
                   if (savedState.people && Array.isArray(savedState.people)) {
-                    updatedState.people = mergeArraysById(current.people || [], savedState.people);
+                    const filteredRemote = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
+                    const filteredLocal = (current.people || []).filter((p: any) => p && p.id && !deletedPId.has(p.id));
+                    updatedState.people = mergeArraysById(filteredLocal, filteredRemote);
                   }
                   if (savedState.closings && Array.isArray(savedState.closings)) {
-                    updatedState.closings = mergeClosings(current.closings || [], savedState.closings);
+                    const filteredRemote = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
+                    const filteredLocal = (current.closings || []).filter((c: any) => c && c.id && !deletedCId.has(c.id));
+                    updatedState.closings = mergeClosings(filteredLocal, filteredRemote);
                   }
                   if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
                     updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
@@ -925,6 +950,25 @@ export default function App() {
             saveAdministrativeRefs();
           }
           
+          // Read and track deleted ID lists to prevent deleted items from returning during snapshot merges
+          const deletedTxIds = new Set<string>(savedState.deletedTransactionIds || []);
+          const deletedCId = new Set<string>(savedState.deletedClosingIds || []);
+          const deletedPId = new Set<string>(savedState.deletedPeopleIds || []);
+
+          if (current.deletedTransactionIds) {
+            current.deletedTransactionIds.forEach(id => deletedTxIds.add(id));
+          }
+          if (current.deletedClosingIds) {
+            current.deletedClosingIds.forEach(id => deletedCId.add(id));
+          }
+          if (current.deletedPeopleIds) {
+            current.deletedPeopleIds.forEach(id => deletedPId.add(id));
+          }
+
+          updatedState.deletedTransactionIds = Array.from(deletedTxIds);
+          updatedState.deletedClosingIds = Array.from(deletedCId);
+          updatedState.deletedPeopleIds = Array.from(deletedPId);
+
           // Merge all entities safely
           if (savedState.boxes && Array.isArray(savedState.boxes)) {
             updatedState.boxes = mergeArraysById(current.boxes || [], savedState.boxes);
@@ -933,17 +977,23 @@ export default function App() {
             updatedState.categories = mergeArraysById(current.categories || [], savedState.categories);
           }
           if (savedState.transactions && Array.isArray(savedState.transactions)) {
-            updatedState.transactions = mergeAndSortTransactions(current.transactions || [], savedState.transactions);
+            const filteredRemote = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+            const filteredLocal = (current.transactions || []).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+            updatedState.transactions = mergeAndSortTransactions(filteredLocal, filteredRemote);
           }
           
           // Recalculate balances automatically from merged transactions
           updatedState.boxes = recalculateBalances(updatedState);
 
           if (savedState.people && Array.isArray(savedState.people)) {
-            updatedState.people = mergeArraysById(current.people || [], savedState.people);
+            const filteredRemote = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
+            const filteredLocal = (current.people || []).filter((p: any) => p && p.id && !deletedPId.has(p.id));
+            updatedState.people = mergeArraysById(filteredLocal, filteredRemote);
           }
           if (savedState.closings && Array.isArray(savedState.closings)) {
-            updatedState.closings = mergeClosings(current.closings || [], savedState.closings);
+            const filteredRemote = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
+            const filteredLocal = (current.closings || []).filter((c: any) => c && c.id && !deletedCId.has(c.id));
+            updatedState.closings = mergeClosings(filteredLocal, filteredRemote);
           }
           if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
             updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
@@ -1331,6 +1381,13 @@ export default function App() {
     if (tx) {
       updatedState.transactions = updatedState.transactions.filter(t => t.id !== txId);
       
+      if (!updatedState.deletedTransactionIds) {
+        updatedState.deletedTransactionIds = [];
+      }
+      if (!updatedState.deletedTransactionIds.includes(txId)) {
+        updatedState.deletedTransactionIds = [...updatedState.deletedTransactionIds, txId];
+      }
+
       // Refresh final balances automatically
       updatedState.boxes = recalculateBalances(updatedState);
 
@@ -1486,6 +1543,13 @@ export default function App() {
     if (closing) {
       updatedState.closings = updatedState.closings.filter(c => c.id !== closingId);
 
+      if (!updatedState.deletedClosingIds) {
+        updatedState.deletedClosingIds = [];
+      }
+      if (!updatedState.deletedClosingIds.includes(closingId)) {
+        updatedState.deletedClosingIds = [...updatedState.deletedClosingIds, closingId];
+      }
+
       // Audit Log
       addAuditLog(
         updatedState,
@@ -1501,7 +1565,17 @@ export default function App() {
   // Clear all closings (atas) from permanent archive
   const handleClearAllClosings = () => {
     const updatedState = { ...state };
+    const ids = updatedState.closings.map(c => c.id);
     updatedState.closings = [];
+    
+    if (!updatedState.deletedClosingIds) {
+      updatedState.deletedClosingIds = [];
+    }
+    ids.forEach(id => {
+      if (!updatedState.deletedClosingIds!.includes(id)) {
+        updatedState.deletedClosingIds!.push(id);
+      }
+    });
     
     // Audit Log
     addAuditLog(
