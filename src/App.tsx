@@ -1279,6 +1279,37 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
+  // Update state and immediately persist to Google Firestore to prevent any page-refresh data loss or snapshot race conditions
+  const updateStateAndPersist = (updatedState: AppState) => {
+    setState(updatedState);
+
+    if (updatedState.currentUser && updatedState.currentUser.id.startsWith('fb-') && updatedState.currentUser.role !== 'VISITANTE') {
+      const fbUserId = updatedState.currentUser.id.replace('fb-', '');
+      
+      const normalizedCurrent = {
+        boxes: updatedState.boxes || [],
+        categories: updatedState.categories || [],
+        transactions: updatedState.transactions || [],
+        people: updatedState.people || [],
+        closings: updatedState.closings || [],
+        auditLogs: updatedState.auditLogs || [],
+        users: updatedState.users || []
+      };
+      
+      lastSyncStringRef.current = JSON.stringify(normalizedCurrent);
+      setSyncingFirestore(true);
+      
+      saveStateToFirestore(fbUserId, updatedState, Array.from(deletedUsernamesRef.current), Object.fromEntries(editedUsersRef.current))
+        .then(() => {
+          setLastSyncedTime(new Date().toLocaleTimeString());
+        })
+        .catch(e => console.error("Erro ao sincronizar com Firestore:", e))
+        .finally(() => {
+          setSyncingFirestore(false);
+        });
+    }
+  };
+
   // Transaction submission (Secretary or Treasurer)
   const handleAddTransaction = (data: {
     type: 'ENTRADA' | 'SAIDA';
@@ -1330,7 +1361,7 @@ export default function App() {
       `Cadastrou ${data.type.toLowerCase()} ${nextCode} de R$ ${data.amount.toFixed(2)} pendente de visto eletrônico.`
     );
 
-    setState(updatedState);
+    updateStateAndPersist(updatedState);
     setActiveReceipt(newTx); // Automatically trigger Comprovante display!
   };
 
@@ -1359,7 +1390,7 @@ export default function App() {
         `Aprovou e conciliou o voucher ${tx.transactionNum} no valor de R$ ${tx.amount.toFixed(2)}.`
       );
 
-      setState(updatedState);
+      updateStateAndPersist(updatedState);
     }
   };
 
@@ -1387,7 +1418,7 @@ export default function App() {
         `Excluiu e cancelou o lançamento ${tx.transactionNum} no valor de R$ ${tx.amount.toFixed(2)} (${tx.type.toLowerCase()}).`
       );
 
-      setState(updatedState);
+      updateStateAndPersist(updatedState);
     }
   };
 
@@ -1454,7 +1485,7 @@ export default function App() {
       `Efetuou repasse de R$ ${data.amount.toFixed(2)} de ${data.fromBox === 'CAIXA_5_EBD' ? '5% EBD' : 'Lições'} para ${data.toBox === 'CAIXA_5_EBD' ? '5% EBD' : 'Lições'}.`
     );
 
-    setState(updatedState);
+    updateStateAndPersist(updatedState);
   };
 
   // Weekly closing drafting handler (Treasurer)
@@ -1499,7 +1530,7 @@ export default function App() {
       `Redigiu fechamento consolidado ${code} pendente de visto pastoral.`
     );
 
-    setState(updatedState);
+    updateStateAndPersist(updatedState);
     setActiveAta(newClosing); // Instantly showcase document!
   };
 
@@ -1520,7 +1551,7 @@ export default function App() {
         `Aprovou e referendou o Fechamento Semanal ${closing.closingNum}.`
       );
 
-      setState(updatedState);
+      updateStateAndPersist(updatedState);
     }
   };
 
@@ -1547,7 +1578,7 @@ export default function App() {
         updatedState.currentUser
       );
 
-      setState(updatedState);
+      updateStateAndPersist(updatedState);
     }
   };
 
@@ -1574,7 +1605,7 @@ export default function App() {
       updatedState.currentUser
     );
 
-    setState(updatedState);
+    updateStateAndPersist(updatedState);
   };
 
   // Student & Visitor registrant submittals (Secretary or Treasurer)
@@ -1604,7 +1635,7 @@ export default function App() {
       `Cadastrou o ${data.type.toLowerCase()} "${data.name}" no sistema.`
     );
 
-    setState(updatedState);
+    updateStateAndPersist(updatedState);
   };
 
   // High-contrast premium loading screen for authentication check and Firestore sync
