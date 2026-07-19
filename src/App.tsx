@@ -1376,9 +1376,18 @@ export default function App() {
     const tx = updatedState.transactions.find(t => t.id === txId);
     
     if (tx && !tx.isApproved) {
-      tx.isApproved = true;
-      tx.approvedBy = updatedState.currentUser?.name;
-      tx.approvedAt = new Date().toISOString();
+      // Immutably clone transactions array and replace the approved transaction with a clean clone
+      updatedState.transactions = updatedState.transactions.map(t => {
+        if (t.id === txId) {
+          return {
+            ...t,
+            isApproved: true,
+            approvedBy: updatedState.currentUser?.name,
+            approvedAt: new Date().toISOString()
+          };
+        }
+        return t;
+      });
 
       // Refresh final balances automatically
       updatedState.boxes = recalculateBalances(updatedState);

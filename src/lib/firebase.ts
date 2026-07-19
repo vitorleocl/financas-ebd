@@ -57,8 +57,10 @@ export const auth = getAuth(app);
 
 // Use initializeFirestore with experimentalAutoDetectLongPolling: true to automatically switch to HTTP long-polling if WebSockets are blocked or fail.
 // This is critical for mobile carriers and firewall-restricted networks, preventing "Failed to get document because the client is offline" errors.
+// Also enable ignoreUndefinedProperties: true to prevent Firestore from rejecting objects with undefined fields.
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true
+  experimentalAutoDetectLongPolling: true,
+  ignoreUndefinedProperties: true
 }, customDatabaseId || undefined);
 
 export { 
@@ -232,7 +234,11 @@ export async function saveStateToFirestore(
         currentUser: null,
         updatedAt: new Date().toISOString()
       };
-      await setDoc(userDocRef, stateToSave);
+      
+      // Robust client-side sanitization to recursively strip out any "undefined" properties (e.g. approvedBy, approvedAt) before saving to Firestore
+      const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
+      
+      await setDoc(userDocRef, sanitizedState);
       console.log("State durably persisted to Google Firestore (shared_church_ebd)!");
       return true;
     } catch (err) {
