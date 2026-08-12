@@ -1,9 +1,12 @@
 {
-  "projectId": "financas-ebd",
-  "appId": "1:340681174321:web:c5253f111e334aae991410",
-  "apiKey": "AIzaSyA_BPRObV9r1KfisRCcmRq88D6ULAYVF-c",
-  "authDomain": "financas-ebd.firebaseapp.com",
-  "storageBucket": "financas-ebd.firebasestorage.app",
-  "messagingSenderId": "340681174321",
-  "measurementId": "G-QF7LTCNBNQ"
+  "projectId": "local-index-4rwfn",
+  "appId": "1:961243818636:web:76dd04b0df60b613cea9a9",
+  "apiKey": "AIzaSyBNC2O385kNKGNg7dbTuWb6wat1RPsj_RE",
+  "authDomain": "local-index-4rwfn-bc1f7.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-gestofinanceirae-33db134f-a58e-4a7b-86d9-5cae610466d0",
+  "storageBucket": "local-index-4rwfn.firebasestorage.app",
+  "messagingSenderId": "961243818636",
+  "measurementId": "",
+  "oAuthClientId": "961243818636-olg4vqiq4rfd97il6t18odkq8m0sg70t.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

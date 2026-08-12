@@ -787,13 +787,21 @@ export default function App() {
             setIsConnectingAuth(false);
             
             const msg = err.message || '';
-            if (msg.includes("PERMISSION_DENIED") || msg.includes("permission-denied") || msg.includes("API has not been used")) {
-              if (msg.includes("API has not been used") || msg.includes("disabled")) {
+            const msgLower = msg.toLowerCase();
+            const isPermissionError = 
+              err.code === "permission-denied" || 
+              msg.includes("PERMISSION_DENIED") || 
+              msg.includes("permission-denied") || 
+              msgLower.includes("permission") || 
+              msgLower.includes("insufficient");
+
+            if (isPermissionError || msgLower.includes("api has not been used") || msgLower.includes("disabled")) {
+              if (msgLower.includes("api has not been used") || msgLower.includes("disabled")) {
                 setFirebaseError("API do Firestore desativada no seu Google Cloud Console. Ative para sincronizar!");
               } else {
                 setFirebaseError("Permissão negada ao acessar o banco de dados. Crie o Firestore em modo de teste ou verifique as regras.");
               }
-            } else if (err.code === "unavailable" || msg.includes("offline")) {
+            } else if (err.code === "unavailable" || msgLower.includes("offline")) {
               setFirebaseError("O Firestore está offline ou inacessível. Usando armazenamento local temporário.");
             } else {
               setFirebaseError(`Erro ao sincronizar Nuvem: ${msg}`);
@@ -1896,8 +1904,8 @@ export default function App() {
                 </span>
               </div>
             </div>
-            {state.currentUser?.role === 'MASTER' && (
-              <div className="flex gap-2 shrink-0 self-end md:self-center">
+            {state.currentUser?.role === 'MASTER' ? (
+              <div className="flex gap-2 shrink-0 self-end md:self-center items-center">
                 <a
                   href="https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=financas-ebd"
                   target="_blank"
@@ -1914,7 +1922,21 @@ export default function App() {
                 >
                   2. Criar Banco no Firebase
                 </a>
+                <button
+                  onClick={() => setFirebaseError(null)}
+                  className="bg-red-200 hover:bg-red-300 text-red-900 font-extrabold px-2.5 py-1.5 rounded-lg transition-colors text-[10px] uppercase cursor-pointer ml-1"
+                  title="Fechar aviso"
+                >
+                  ✕ Ocultar
+                </button>
               </div>
+            ) : (
+              <button
+                onClick={() => setFirebaseError(null)}
+                className="bg-red-200 hover:bg-red-300 text-red-900 font-extrabold px-2.5 py-1.5 rounded-lg transition-colors text-[10px] uppercase cursor-pointer shrink-0 self-end md:self-center"
+              >
+                ✕ Ocultar
+              </button>
             )}
           </div>
         </div>
