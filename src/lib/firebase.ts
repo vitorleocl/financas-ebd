@@ -38,17 +38,32 @@ import {
 import firebaseConfig from "../../firebase-applet-config.json";
 
 // Mapeia e permite sobrescrever as credenciais do Firebase com variáveis de ambiente personalizadas
+const envProjectId = (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID;
+const envAuthDomain = (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN;
+const envApiKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
+
 const dynamicFirebaseConfig = {
-  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
-  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
-  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
-  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
-  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
-  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
-  measurementId: (import.meta as any).env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId,
+  apiKey: envApiKey || firebaseConfig.apiKey,
+  authDomain: envAuthDomain || (
+    (envProjectId === "financas-ebd" || firebaseConfig.projectId === "financas-ebd")
+      ? "financas-ebd.firebaseapp.com"
+      : firebaseConfig.authDomain
+  ),
+  projectId: envProjectId || firebaseConfig.projectId,
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || (
+    (envProjectId === "financas-ebd" || firebaseConfig.projectId === "financas-ebd")
+      ? "financas-ebd.appspot.com"
+      : firebaseConfig.storageBucket
+  ),
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  measurementId: (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId,
 };
 
-const customDatabaseId = (import.meta as any).env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId;
+// Quando usando financas-ebd, o banco Firestore é o (default). Se usando o applet local, usa o databaseId customizado
+const customDatabaseId = (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (
+  (dynamicFirebaseConfig.projectId === "financas-ebd") ? undefined : (firebaseConfig as any).firestoreDatabaseId
+);
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(dynamicFirebaseConfig) : getApp();
