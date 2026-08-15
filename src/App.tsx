@@ -1652,28 +1652,6 @@ export default function App() {
                 </svg>
                 <span className="text-slate-850 tracking-wide text-xs">Continuar com o Google</span>
               </button>
-
-              {/* Roles and permissions guide */}
-              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-[11px] text-slate-600">
-                <div className="flex items-center gap-1.5 text-indigo-700 font-extrabold text-[10px] uppercase tracking-wider">
-                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Perfis e Permissões Vinculadas</span>
-                </div>
-                <div className="space-y-1.5 text-[10px] leading-snug">
-                  <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 rounded-full bg-indigo-900 shrink-0 mt-1" />
-                    <span><strong>Master (Acesso Total):</strong> Vitor Leonardo e Eduarda Soares</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 mt-1" />
-                    <span><strong>Dirigente (Vistos e Auditoria):</strong> Marcos Lima</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-1" />
-                    <span><strong>Tesouraria / Usuários:</strong> Gestão de caixas e lançamentos</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-semibold font-mono">
