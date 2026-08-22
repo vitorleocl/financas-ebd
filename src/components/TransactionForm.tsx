@@ -24,9 +24,49 @@ interface TransactionFormProps {
     attachment?: string;
   }) => void;
   currentUser: { name: string; role: string } | null;
+  onNavigateToDashboard?: () => void;
 }
 
-export default function TransactionForm({ categories, onSubmit, currentUser }: TransactionFormProps) {
+// Client-side image compression to ensure attachments stay lightweight (< 80KB) and safe for Firestore
+const compressImageFile = (file: File | Blob, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(e.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(e.target?.result as string || '');
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+};
+
+export default function TransactionForm({ categories, onSubmit, currentUser, onNavigateToDashboard }: TransactionFormProps) {
   const [type, setType] = useState<TransactionType>('ENTRADA');
   const [boxId, setBoxId] = useState<BoxId>('CAIXA_5_EBD');
   const [amount, setAmount] = useState<string>('');
@@ -37,6 +77,7 @@ export default function TransactionForm({ categories, onSubmit, currentUser }: T
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const [isProcessingFile, setIsProcessingFile] = useState<boolean>(false);
 
   // Filter categories by movement type
   const filteredCategories = categories.filter(cat => cat.type === type);
@@ -65,19 +106,23 @@ export default function TransactionForm({ categories, onSubmit, currentUser }: T
     };
   }, []);
 
-  // File change handler
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File change handler with lightweight compression
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('O arquivo de comprovante deve ter no máximo 5MB.');
+      if (file.size > 10 * 1024 * 1024) {
+        setError('O arquivo de comprovante deve ter no máximo 10MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAttachment(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsProcessingFile(true);
+      try {
+        const compressedDataUrl = await compressImageFile(file);
+        setAttachment(compressedDataUrl);
+      } catch (err) {
+        console.error("Erro ao comprimir anexo:", err);
+      } finally {
+        setIsProcessingFile(false);
+      }
     }
   };
 
@@ -109,17 +154,29 @@ export default function TransactionForm({ categories, onSubmit, currentUser }: T
     setIsCameraActive(false);
   };
 
-  // Capture photo from webcam
+  // Capture photo from webcam with compression
   const capturePhoto = () => {
     if (videoRef.current) {
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      const maxDim = 800;
+      let width = video.videoWidth || 640;
+      let height = video.videoHeight || 480;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        ctx.drawImage(video, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         setAttachment(dataUrl);
         stopCamera();
       }
@@ -171,10 +228,10 @@ export default function TransactionForm({ categories, onSubmit, currentUser }: T
     setAttachment(null);
     stopCamera();
 
-    // Auto fadeout success badge after 3s
+    // Auto fadeout success badge after 6s
     setTimeout(() => {
       setSuccess(false);
-    }, 3000);
+    }, 6000);
   };
 
   return (
@@ -185,12 +242,23 @@ export default function TransactionForm({ categories, onSubmit, currentUser }: T
       </div>
 
       {success && (
-        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 flex items-start gap-2.5 animate-slide-in">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-sm">Sucesso!</p>
-            <p className="text-xs text-emerald-700">Lançamento cadastrado e enviado para o fluxo de aprovação.</p>
+        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-slide-in">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Lançamento cadastrado com sucesso!</p>
+              <p className="text-xs text-emerald-700">A movimentação foi salva e está listada em <strong>"Lançamentos Pendentes de Visto Eletrônico"</strong> no Dashboard.</p>
+            </div>
           </div>
+          {onNavigateToDashboard && (
+            <button
+              type="button"
+              onClick={onNavigateToDashboard}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer"
+            >
+              Ir para o Dashboard →
+            </button>
+          )}
         </div>
       )}
 

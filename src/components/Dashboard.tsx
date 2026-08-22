@@ -122,6 +122,41 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Pending Approvals Notice Banner */}
+      {pendingApprovals.length > 0 && (
+        <div className="bg-amber-50/90 border border-amber-200/90 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm shadow-amber-500/30">
+              <SquareCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-extrabold text-sm text-slate-800 tracking-tight">
+                  {pendingApprovals.length} Lançamento{pendingApprovals.length > 1 ? 's' : ''} Pendente{pendingApprovals.length > 1 ? 's' : ''} de Visto Eletrônico
+                </h4>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 uppercase">
+                  Aguardando Visto
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                {currentUser?.role === 'DIRIGENTE' || currentUser?.role === 'MASTER' 
+                  ? 'Você possui permissão institucional para validar e aprovar os lançamentos abaixo.' 
+                  : 'Os lançamentos foram cadastrados e aguardam o aval institucional do Dirigente ou Master.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const el = document.getElementById('pending-approvals-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            Ver Lançamentos ↓
+          </button>
+        </div>
+      )}
+
       {/* Main KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
@@ -285,7 +320,7 @@ export default function Dashboard({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
         {/* Approvals Drawer (2/3 width on desktop) */}
-        <div className="xl:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 sm:p-7 shadow-sm flex flex-col min-h-[350px]">
+        <div id="pending-approvals-section" className="xl:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 sm:p-7 shadow-sm flex flex-col min-h-[350px] scroll-mt-24">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
             <div>
               <h4 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">

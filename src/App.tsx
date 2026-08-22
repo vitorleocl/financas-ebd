@@ -2130,6 +2130,7 @@ export default function App() {
                   categories={state.categories}
                   onSubmit={handleAddTransaction}
                   currentUser={user}
+                  onNavigateToDashboard={() => setActiveTab('dashboard')}
                 />
               ) : (
                 <div className="bg-white rounded-2xl p-8 text-center max-w-md mx-auto border border-slate-100">
