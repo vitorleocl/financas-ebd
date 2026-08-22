@@ -1163,10 +1163,9 @@ export default function App() {
       case 'auth/invalid-credential':
         return 'Credenciais de acesso incorretas ou expiradas.';
       case 'auth/unauthorized-domain':
-        return `O domínio "${window.location.hostname}" precisa estar autorizado na lista de domínios do Firebase. ` +
-          `Atenção importante: No Firebase Console (Authentication > Settings > Authorized Domains), adicione apenas o nome do domínio: "${window.location.hostname}" (sem "https://" e sem "/" no final). ` +
-          `Lembrete: O Google leva de 2 a 5 minutos para propagar domínios recém-adicionados. ` +
-          `Se o seu projeto for "financas-ebd", certifique-se de configurar as variáveis de ambiente na Vercel (VITE_FIREBASE_PROJECT_ID=financas-ebd) ou adicionar o domínio também no projeto ${firebaseConfig.projectId}.`;
+        return `O domínio "${window.location.hostname}" precisa estar autorizado no console do seu Firebase (${firebaseConfig.projectId}). ` +
+          `Acesse o Firebase Console do projeto "${firebaseConfig.projectId}" > Authentication > Settings > Authorized Domains e adicione "${window.location.hostname}" (sem "https://" e sem barra). ` +
+          `Lembrete: O Google pode levar até 5 minutos para propagar domínios recém-adicionados.`;
       case 'auth/popup-closed-by-user':
         return 'O popup de autenticação do Google foi fechado antes de concluir o acesso. Por favor, tente novamente e mantenha a janela aberta até a conclusão.';
       case 'auth/cancelled-popup-request':

@@ -37,33 +37,28 @@ import {
 
 import firebaseConfig from "../../firebase-applet-config.json";
 
-// Mapeia e permite sobrescrever as credenciais do Firebase com variáveis de ambiente personalizadas
+// Mapeia e permite sobrescrever as credenciais do Firebase com variáveis de ambiente personalizadas caso desejado
 const envProjectId = (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID;
 const envAuthDomain = (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN;
 const envApiKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
+const envStorageBucket = (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET;
+const envMessagingSenderId = (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const envAppId = (import.meta as any).env?.VITE_FIREBASE_APP_ID;
+const envMeasurementId = (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID;
 
 const dynamicFirebaseConfig = {
   apiKey: envApiKey || firebaseConfig.apiKey,
-  authDomain: envAuthDomain || (
-    (envProjectId === "financas-ebd" || firebaseConfig.projectId === "financas-ebd")
-      ? "financas-ebd.firebaseapp.com"
-      : firebaseConfig.authDomain
-  ),
+  authDomain: envAuthDomain || firebaseConfig.authDomain,
   projectId: envProjectId || firebaseConfig.projectId,
-  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || (
-    (envProjectId === "financas-ebd" || firebaseConfig.projectId === "financas-ebd")
-      ? "financas-ebd.appspot.com"
-      : firebaseConfig.storageBucket
-  ),
-  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
-  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
-  measurementId: (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId,
+  storageBucket: envStorageBucket || firebaseConfig.storageBucket,
+  messagingSenderId: envMessagingSenderId || firebaseConfig.messagingSenderId,
+  appId: envAppId || firebaseConfig.appId,
+  measurementId: envMeasurementId || firebaseConfig.measurementId,
 };
 
-// Quando usando financas-ebd, o banco Firestore é o (default). Se usando o applet local, usa o databaseId customizado
-const customDatabaseId = (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (
-  (dynamicFirebaseConfig.projectId === "financas-ebd") ? undefined : (firebaseConfig as any).firestoreDatabaseId
-);
+// ID do banco Firestore (se "(default)" ou não especificado, usa a instância padrão)
+const rawDatabaseId = (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId;
+const customDatabaseId = (rawDatabaseId && rawDatabaseId !== "(default)") ? rawDatabaseId : undefined;
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(dynamicFirebaseConfig) : getApp();
@@ -73,10 +68,15 @@ export const auth = getAuth(app);
 // Use initializeFirestore with experimentalAutoDetectLongPolling: true to automatically switch to HTTP long-polling if WebSockets are blocked or fail.
 // This is critical for mobile carriers and firewall-restricted networks, preventing "Failed to get document because the client is offline" errors.
 // Also enable ignoreUndefinedProperties: true to prevent Firestore from rejecting objects with undefined fields.
-export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  ignoreUndefinedProperties: true
-}, customDatabaseId || undefined);
+export const db = customDatabaseId 
+  ? initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true
+    }, customDatabaseId)
+  : initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true
+    });
 
 export { 
   signInWithEmailAndPassword, 
