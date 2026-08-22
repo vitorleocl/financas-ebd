@@ -49,17 +49,61 @@ import AtaWeeklyClosing from './components/AtaWeeklyClosing';
 import LogoEBD from './components/LogoEBD';
 
 // Helper functions to merge local and remote lists to prevent data loss or duplicate transactions between devices
-const mergeAndSortTransactions = (local: Transaction[], remote: Transaction[]): Transaction[] => {
+const mergeAndSortTransactions = (
+  local: Transaction[], 
+  remote: Transaction[],
+  approvedMap?: Map<string, { approvedBy?: string; approvedAt?: string }>
+): Transaction[] => {
   const map = new Map<string, Transaction>();
-  if (Array.isArray(remote)) remote.forEach(t => map.set(t.id, t));
-  if (Array.isArray(local)) {
-    local.forEach(t => {
-      if (!map.has(t.id)) {
-        map.set(t.id, t);
+  
+  // 1. First add remote transactions
+  if (Array.isArray(remote)) {
+    remote.forEach(t => {
+      if (t && t.id) {
+        map.set(t.id, { ...t });
       }
     });
   }
-  return Array.from(map.values()).sort((a, b) => {
+
+  // 2. Merge local transactions
+  if (Array.isArray(local)) {
+    local.forEach(localTx => {
+      if (localTx && localTx.id) {
+        if (!map.has(localTx.id)) {
+          map.set(localTx.id, { ...localTx });
+        } else {
+          const remoteTx = map.get(localTx.id)!;
+          // CRITICAL INVARIANT: Once approved, ALWAYS approved!
+          const isApproved = remoteTx.isApproved === true || localTx.isApproved === true || (approvedMap?.has(localTx.id) ?? false);
+          const approvedBy = localTx.approvedBy || remoteTx.approvedBy || approvedMap?.get(localTx.id)?.approvedBy;
+          const approvedAt = localTx.approvedAt || remoteTx.approvedAt || approvedMap?.get(localTx.id)?.approvedAt;
+
+          map.set(localTx.id, {
+            ...remoteTx,
+            ...localTx,
+            isApproved,
+            approvedBy: isApproved ? approvedBy : undefined,
+            approvedAt: isApproved ? approvedAt : undefined,
+            attachment: localTx.attachment || remoteTx.attachment
+          });
+        }
+      }
+    });
+  }
+
+  // 3. Guarantee any transaction recorded in approvedMap has isApproved: true
+  const result: Transaction[] = [];
+  map.forEach(tx => {
+    if (approvedMap && approvedMap.has(tx.id)) {
+      const approvalData = approvedMap.get(tx.id);
+      tx.isApproved = true;
+      if (!tx.approvedBy && approvalData?.approvedBy) tx.approvedBy = approvalData.approvedBy;
+      if (!tx.approvedAt && approvalData?.approvedAt) tx.approvedAt = approvalData.approvedAt;
+    }
+    result.push(tx);
+  });
+
+  return result.sort((a, b) => {
     const timeA = new Date(a.createdAt || a.id.replace('tx-', '')).getTime();
     const timeB = new Date(b.createdAt || b.id.replace('tx-', '')).getTime();
     return timeB - timeA;
@@ -349,11 +393,25 @@ export default function App() {
     return new Map<string, { role: UserRole; name: string }>();
   })());
 
+  // Keep track of approved transactions to guarantee "once approved, ALWAYS approved" and prevent race conditions from reverting approvals
+  const approvedTransactionsRef = useRef<Map<string, { approvedBy?: string; approvedAt?: string }>>((() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ebd_approved_transactions');
+        return saved ? new Map<string, { approvedBy?: string; approvedAt?: string }>(JSON.parse(saved)) : new Map();
+      } catch (e) {
+        console.warn("Failed to load approvedTransactionsRef from localStorage:", e);
+      }
+    }
+    return new Map();
+  })());
+
   const saveAdministrativeRefs = () => {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('ebd_deleted_usernames', JSON.stringify(Array.from(deletedUsernamesRef.current)));
         localStorage.setItem('ebd_edited_users', JSON.stringify(Array.from(editedUsersRef.current.entries())));
+        localStorage.setItem('ebd_approved_transactions', JSON.stringify(Array.from(approvedTransactionsRef.current.entries())));
       } catch (e) {
         console.warn("Failed to save administrative refs to localStorage:", e);
       }
@@ -597,7 +655,29 @@ export default function App() {
                   });
 
                   if (savedState.transactions && Array.isArray(savedState.transactions)) {
-                    updatedState.transactions = savedState.transactions.filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+                    // Record all remote approved transactions into our approvedTransactionsRef
+                    let hasNewApproved = false;
+                    savedState.transactions.forEach((t: any) => {
+                      if (t && t.id && t.isApproved) {
+                        if (!approvedTransactionsRef.current.has(t.id)) {
+                          approvedTransactionsRef.current.set(t.id, {
+                            approvedBy: t.approvedBy,
+                            approvedAt: t.approvedAt
+                          });
+                          hasNewApproved = true;
+                        }
+                      }
+                    });
+                    if (hasNewApproved) {
+                      saveAdministrativeRefs();
+                    }
+
+                    // Merging remote transactions with current local transactions ensuring approved ones remain approved forever
+                    updatedState.transactions = mergeAndSortTransactions(
+                      current.transactions || [],
+                      savedState.transactions,
+                      approvedTransactionsRef.current
+                    ).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
                   }
                   
                   if (savedState.people && Array.isArray(savedState.people)) {
@@ -1295,15 +1375,25 @@ export default function App() {
     const updatedState = { ...state };
     const tx = updatedState.transactions.find(t => t.id === txId);
     
-    if (tx && !tx.isApproved) {
+    if (tx) {
+      const approverName = updatedState.currentUser?.name || (activeRole === 'MASTER' ? 'Master' : 'Dirigente');
+      const approvedAt = new Date().toISOString();
+
+      // Permanent tracking: Once approved, ALWAYS approved!
+      approvedTransactionsRef.current.set(txId, {
+        approvedBy: approverName,
+        approvedAt
+      });
+      saveAdministrativeRefs();
+
       // Immutably clone transactions array and replace the approved transaction with a clean clone
       updatedState.transactions = updatedState.transactions.map(t => {
         if (t.id === txId) {
           return {
             ...t,
             isApproved: true,
-            approvedBy: updatedState.currentUser?.name,
-            approvedAt: new Date().toISOString()
+            approvedBy: approverName,
+            approvedAt
           };
         }
         return t;
@@ -1328,6 +1418,10 @@ export default function App() {
     const updatedState = { ...state };
     const tx = updatedState.transactions.find(t => t.id === txId);
     if (tx) {
+      // If deleted, remove from approved tracking
+      approvedTransactionsRef.current.delete(txId);
+      saveAdministrativeRefs();
+
       updatedState.transactions = updatedState.transactions.filter(t => t.id !== txId);
       
       if (!updatedState.deletedTransactionIds) {

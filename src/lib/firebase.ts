@@ -115,8 +115,8 @@ export async function saveStateToFirestore(
       // Fetch latest remote users directly from the server to bypass stale cache and prevent overwriting concurrent registrations!
       let mergedUsers = stateData.users || [];
       let finalDeletedEmails: string[] = [];
+      let docSnap: any = null;
       try {
-        let docSnap;
         try {
           docSnap = await getDocFromServer(userDocRef);
         } catch (srvErr) {
@@ -202,10 +202,38 @@ export async function saveStateToFirestore(
         finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
       }
 
+      // Ensure all approved transactions retain isApproved: true (Once approved, ALWAYS approved)
+      let finalTransactions = stateData.transactions || [];
+      if (docSnap && docSnap.exists()) {
+        const remoteData = docSnap.data();
+        const remoteTransactions = remoteData.transactions || [];
+        const remoteApprovedMap = new Map<string, any>();
+        remoteTransactions.forEach((rt: any) => {
+          if (rt && rt.id && rt.isApproved) {
+            remoteApprovedMap.set(rt.id, rt);
+          }
+        });
+
+        finalTransactions = finalTransactions.map((tx: any) => {
+          if (!tx) return tx;
+          if (tx.isApproved) return tx;
+          if (remoteApprovedMap.has(tx.id)) {
+            const remoteApproved = remoteApprovedMap.get(tx.id);
+            return {
+              ...tx,
+              isApproved: true,
+              approvedBy: remoteApproved.approvedBy || tx.approvedBy,
+              approvedAt: remoteApproved.approvedAt || tx.approvedAt
+            };
+          }
+          return tx;
+        });
+      }
+
       // Ensure box balances are 100% mathematically correct based on transactions being saved
       let finalBoxes = stateData.boxes || [];
       if (Array.isArray(finalBoxes)) {
-        const txs = stateData.transactions || [];
+        const txs = finalTransactions;
         finalBoxes = finalBoxes.map((box: any) => {
           if (!box) return box;
           const boxTransactions = txs.filter((t: any) => {
@@ -243,6 +271,7 @@ export async function saveStateToFirestore(
       // Ensure currentUser is null so credentials/local sessions are kept local
       const stateToSave = {
         ...stateData,
+        transactions: finalTransactions,
         boxes: finalBoxes,
         users: mergedUsers,
         deletedEmails: finalDeletedEmails,
