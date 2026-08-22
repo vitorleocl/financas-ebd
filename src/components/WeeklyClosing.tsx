@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { WeeklyClosing as ClosingType, Transaction, User } from '../types';
-import { Calendar, ShieldAlert, CheckCircle, FileText, Lock, PenTool, ClipboardCheck, Clock, Trash2 } from 'lucide-react';
+import { Calendar, ShieldAlert, CheckCircle, FileText, Lock, PenTool, ClipboardCheck, Clock, Trash2, FileDown, Loader2 } from 'lucide-react';
 import SignaturePad from './SignaturePad';
+import { exportWeeklyClosingToPDF } from '../lib/pdfExport';
 
 interface WeeklyClosingProps {
   closings: ClosingType[];
@@ -44,6 +45,19 @@ export default function WeeklyClosing({
   const [treasurerName, setTreasurerName] = useState(currentUser?.name || '');
   const [signature, setSignature] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [exportingClosingId, setExportingClosingId] = useState<string | null>(null);
+
+  const handleDownloadPDF = async (closing: ClosingType) => {
+    try {
+      setExportingClosingId(closing.id);
+      await exportWeeklyClosingToPDF(closing, transactions);
+    } catch (err) {
+      console.error('Erro ao gerar relatório em PDF:', err);
+      alert('Erro ao exportar PDF.');
+    } finally {
+      setExportingClosingId(null);
+    }
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -370,17 +384,31 @@ export default function WeeklyClosing({
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => onViewAta(close)}
-                          className="py-1 px-2.5 rounded bg-indigo-50 hover:bg-slate-900 duration-150 border border-indigo-200 text-indigo-700 hover:text-white font-bold flex items-center gap-1.5 cursor-pointer"
-                          title="Exibir Ata Ofical Completa"
+                          className="py-1 px-2 rounded bg-indigo-50 hover:bg-slate-900 duration-150 border border-indigo-200 text-indigo-700 hover:text-white font-bold flex items-center gap-1 cursor-pointer"
+                          title="Exibir Ata Oficial Completa"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           Ata
                         </button>
 
+                        <button
+                          onClick={() => handleDownloadPDF(close)}
+                          disabled={exportingClosingId === close.id}
+                          className="py-1 px-2 rounded bg-slate-100 hover:bg-slate-800 duration-150 border border-slate-300 text-slate-700 hover:text-white font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          title="Exportar Relatório Semanal em PDF (jsPDF)"
+                        >
+                          {exportingClosingId === close.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                          ) : (
+                            <FileDown className="w-3.5 h-3.5" />
+                          )}
+                          PDF
+                        </button>
+
                         {!isApproved && (currentUser?.role === 'DIRIGENTE' || currentUser?.role === 'MASTER') && onApproveClosing && (
                           <button
                             onClick={() => onApproveClosing(close.id)}
-                            className="py-1 px-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1"
+                            className="py-1 px-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer"
                             id={`approve-closing-btn-${close.id}`}
                           >
                             Dar Visto

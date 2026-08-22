@@ -3,39 +3,62 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #1e293b;
+    background-color: #f8fafc;
+  }
 }
 
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out forwards;
+    animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   
   .animate-slide-in {
-    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-bounce-subtle {
-    animation: bounceSubtle 1s ease-in-out infinite alternate;
+    animation: bounceSubtle 1.2s ease-in-out infinite alternate;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-card-dark {
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes slideIn {
-  from { transform: translateY(15px); opacity: 0; }
+  from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes bounceSubtle {
   from { transform: translateY(0); }
-  to { transform: translateY(-4px); }
+  to { transform: translateY(-3px); }
 }
+

@@ -5,8 +5,9 @@
 
 import { useState } from 'react';
 import { Transaction, Category, Box } from '../types';
-import { FileDown, Printer, Search, Calendar, Landmark, Tag, User, Layers, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+import { FileDown, Printer, Search, Calendar, Landmark, Tag, User, Layers, ArrowUpRight, ArrowDownRight, TrendingUp, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { exportGeneralFinancialReportToPDF } from '../lib/pdfExport';
 
 interface ReportsViewProps {
   transactions: Transaction[];
@@ -29,6 +30,7 @@ export default function ReportsView({
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isExportingPDF, setIsExportingPDF] = useState<boolean>(false);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -180,6 +182,28 @@ export default function ReportsView({
     document.body.removeChild(link);
   };
 
+  const handleExportPDF = async () => {
+    try {
+      setIsExportingPDF(true);
+      await exportGeneralFinancialReportToPDF(
+        filteredTransactions,
+        categories,
+        boxes,
+        {
+          startDate,
+          endDate,
+          boxId: filterBox !== 'ALL' ? filterBox : undefined,
+          type: filterType !== 'ALL' ? filterType : undefined
+        }
+      );
+    } catch (err) {
+      console.error('Erro ao gerar relatório em PDF:', err);
+      alert('Erro ao exportar PDF.');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -297,11 +321,11 @@ export default function ReportsView({
         </div>
 
         {/* Action Buttons for reports export */}
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-50">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-50">
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 py-2 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold"
+            className="flex items-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             Imprimir Relatório
@@ -310,10 +334,29 @@ export default function ReportsView({
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
+            className="flex items-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold shadow-sm cursor-pointer"
           >
             <FileDown className="w-4 h-4" />
-            Exportar para Excel (CSV)
+            Exportar CSV
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            disabled={isExportingPDF}
+            className="flex items-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            {isExportingPDF ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Gerando PDF...</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="w-4 h-4" />
+                <span>Exportar PDF (jsPDF)</span>
+              </>
+            )}
           </button>
         </div>
       </div>

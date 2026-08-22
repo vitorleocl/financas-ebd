@@ -1597,43 +1597,56 @@ export default function App() {
   // Session check wrapper
   if (!state.currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans select-none">
         
-        {/* Background decorations */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-200/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-100/50 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
+        {/* Ambient atmospheric lighting accents */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-indigo-600/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/3 left-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+        {/* Subtle grid backdrop pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b12_1px,transparent_1px),linear-gradient(to_bottom,#1e293b12_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10 space-y-4">
-          <div className="flex flex-col items-center justify-center mb-2">
-            <LogoEBD className="w-40 h-32 drop-shadow-sm" />
+          <div className="flex flex-col items-center justify-center mb-1">
+            <div className="relative p-3 rounded-3xl bg-slate-900/60 border border-slate-800/80 shadow-2xl backdrop-blur-xl group hover:border-slate-700/80 transition-all duration-300">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-3xl blur-md opacity-20 group-hover:opacity-35 transition-opacity" />
+              <LogoEBD className="w-40 h-28 relative drop-shadow-md" />
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Finanças EBD</h2>
-            <p className="mt-2 text-xs text-slate-500 font-semibold max-w-sm mx-auto leading-relaxed">
-              Sistema de Gestão Financeira Integrada para a Escola Bíblica Dominical
-              <span className="block text-indigo-600 font-bold mt-1 uppercase tracking-wider text-[10px]">
-                IEADALPE - Jardim Paulista Baixo
-              </span>
+
+          <div className="space-y-1.5 pt-1">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[11px] font-bold text-indigo-300 tracking-wider uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              IEADALPE • Jardim Paulista Baixo
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight pt-1">
+              Finanças <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-white to-emerald-300">EBD</span>
+            </h2>
+            <p className="text-xs text-slate-400 font-medium max-w-xs mx-auto leading-relaxed">
+              Plataforma Oficial de Gestão e Tesouraria da Escola Bíblica Dominical
             </p>
           </div>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10">
-          <div className="bg-white py-8 px-4 shadow-xl border border-slate-100 rounded-3xl sm:px-10 space-y-6">
+        <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md z-10">
+          <div className="bg-white/95 backdrop-blur-2xl py-8 px-6 sm:px-10 shadow-2xl shadow-indigo-950/40 border border-white/20 rounded-3xl space-y-6">
             
             {loginError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl p-3.5 flex items-start gap-2.5 animate-bounce-subtle">
+              <div className="bg-red-50/90 border border-red-200 text-red-800 text-xs rounded-2xl p-3.5 flex items-start gap-2.5 animate-bounce-subtle shadow-sm">
                 <AlertCircle className="w-4.5 h-4.5 text-red-600 shrink-0 mt-0.5" />
-                <span className="font-semibold">{loginError}</span>
+                <span className="font-semibold leading-relaxed">{loginError}</span>
               </div>
             )}
 
             {/* Google Authentication Section */}
             <div className="space-y-5 animate-fade-in">
-              <div className="text-center space-y-1">
-                <h3 className="text-sm font-extrabold text-slate-800">Acesso Unificado com Conta Google</h3>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Utilize seu e-mail Google para entrar ou registrar seu perfil no sistema financeiro com sincronização na nuvem.
+              <div className="text-center space-y-1.5">
+                <h3 className="text-sm font-extrabold text-slate-800 tracking-tight">
+                  Acesso com Conta Google
+                </h3>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                  Clique no botão abaixo para autenticar ou registrar seu acesso no banco de dados na nuvem.
                 </p>
               </div>
 
@@ -1641,24 +1654,38 @@ export default function App() {
               <button
                 onClick={handleGoogleLoginClick}
                 type="button"
-                className="w-full bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-indigo-400 rounded-2xl py-3.5 px-4 font-extrabold text-xs shadow-md shadow-slate-100 flex items-center justify-center gap-3 transition-all cursor-pointer active:scale-[0.98] group"
+                disabled={isConnectingAuth}
+                className="w-full bg-slate-900 hover:bg-slate-850 text-white rounded-2xl py-4 px-5 font-bold text-xs shadow-xl shadow-slate-900/15 border border-slate-700/50 flex items-center justify-center gap-3 transition-all cursor-pointer active:scale-[0.98] group hover:shadow-indigo-500/10 hover:border-indigo-500/40 disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.5 24c0-1.63-.15-3.21-.42-4.75H24v9h12.75c-.55 2.87-2.18 5.31-4.62 6.95l7.2 5.58C43.5 36.54 46.5 30.77 46.5 24z"/>
-                  <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.2-5.58c-2 .35-4.55 2.11-8.69 2.11-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                </svg>
-                <span className="text-slate-850 tracking-wide text-xs">Continuar com o Google</span>
+                {isConnectingAuth ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                    <span className="text-slate-200 font-semibold text-xs">Conectando ao Google...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="p-1 rounded-full bg-white shadow-sm shrink-0">
+                      <svg className="w-4 h-4 transition-transform group-hover:scale-110" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.5 24c0-1.63-.15-3.21-.42-4.75H24v9h12.75c-.55 2.87-2.18 5.31-4.62 6.95l7.2 5.58C43.5 36.54 46.5 30.77 46.5 24z"/>
+                        <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.2-5.58c-2 .35-4.55 2.11-8.69 2.11-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                      </svg>
+                    </div>
+                    <span className="text-white tracking-wide text-xs font-bold">Continuar com o Google</span>
+                  </>
+                )}
               </button>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-semibold font-mono">
-              <span className="flex items-center gap-1">
-                <Cloud className="w-3.5 h-3.5 text-indigo-500" />
-                Firebase Cloud Firestore
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="font-semibold text-slate-600">Cloud Firestore</span>
               </span>
-              <span>v1.2.0 • Sincronizado</span>
+              <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-bold">
+                v1.2.0 • Sincronizado
+              </span>
             </div>
           </div>
         </div>
@@ -1749,28 +1776,32 @@ export default function App() {
       )}
       
       {/* Visual Navigation Header (Logo, profile selection and manual offline cloud controls) */}
-      <nav className="bg-slate-900 border-b border-slate-800 text-white shadow-sm z-30 sticky top-0 no-print">
+      <nav className="bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/80 text-white shadow-xl shadow-slate-950/5 z-30 sticky top-0 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-16 sm:h-[68px]">
             
             {/* Logo area */}
-            <div className="flex items-center gap-2.5">
-              <LogoEBD className="w-10 h-10 shrink-0" iconOnly={true} />
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 shadow-sm">
+                <LogoEBD className="w-8 h-8 shrink-0" iconOnly={true} />
+              </div>
               <div>
-                <h1 className="font-extrabold text-sm tracking-tight leading-none block">Finanças EBD</h1>
-                <span className="text-[9px] text-indigo-300 font-bold uppercase tracking-widest block mt-1">
-                  IEADALPE - JP Baixo
+                <h1 className="font-black text-sm tracking-tight leading-none block text-white">
+                  Finanças <span className="text-indigo-400">EBD</span>
+                </h1>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block mt-1">
+                  IEADALPE • JP Baixo
                 </span>
               </div>
             </div>
 
             {/* Desktop Navigation Links */}
             {user.role !== 'VISITANTE' && (
-              <div className="hidden lg:flex items-center gap-1.5 text-xs font-bold">
+              <div className="hidden lg:flex items-center gap-1 text-xs font-bold bg-slate-900/90 p-1 rounded-2xl border border-slate-800/80 shadow-inner">
                 <button
                   onClick={() => setActiveTab('dashboard')}
-                  className={`px-3 py-2 rounded-xl transition-all ${
-                    activeTab === 'dashboard' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                  className={`px-3.5 py-2 rounded-xl transition-all font-semibold ${
+                    activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
                   Dashboard
@@ -1778,8 +1809,8 @@ export default function App() {
 
                 <button
                   onClick={() => setActiveTab('caixas')}
-                  className={`px-3 py-2 rounded-xl transition-all ${
-                    activeTab === 'caixas' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                  className={`px-3.5 py-2 rounded-xl transition-all font-semibold ${
+                    activeTab === 'caixas' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
                   Caixas
@@ -1788,30 +1819,30 @@ export default function App() {
                 {user.role !== 'VISITANTE' && user.role !== 'DIRIGENTE' && (
                   <button
                     onClick={() => setActiveTab('nova_movimentacao')}
-                    className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1 ${
-                      activeTab === 'nova_movimentacao' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                    className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold ${
+                      activeTab === 'nova_movimentacao' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                     id="tab-new-tx"
                   >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    Nova Movimentação
+                    <PlusCircle className="w-3.5 h-3.5 text-indigo-300" />
+                    Lançamento
                   </button>
                 )}
 
                 <button
                   onClick={() => setActiveTab('fechamento')}
-                  className={`px-3 py-2 rounded-xl transition-all ${
-                    activeTab === 'fechamento' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                  className={`px-3.5 py-2 rounded-xl transition-all font-semibold ${
+                    activeTab === 'fechamento' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                   id="tab-closing"
                 >
-                  Fechamento Semanal
+                  Fechamento
                 </button>
 
                 <button
                   onClick={() => setActiveTab('relatorios')}
-                  className={`px-3 py-2 rounded-xl transition-all ${
-                    activeTab === 'relatorios' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                  className={`px-3.5 py-2 rounded-xl transition-all font-semibold ${
+                    activeTab === 'relatorios' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                   id="tab-reports"
                 >
@@ -1821,8 +1852,8 @@ export default function App() {
                 {(user.role === 'TESOUREIRO' || user.role === 'MASTER' || user.role === 'DIRIGENTE') && (
                   <button
                     onClick={() => setActiveTab('auditoria')}
-                    className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1 ${
-                      activeTab === 'auditoria' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                    className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold ${
+                      activeTab === 'auditoria' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                     id="tab-audits"
                   >
@@ -1834,8 +1865,8 @@ export default function App() {
                 {user.role === 'MASTER' && (
                   <button
                     onClick={() => setActiveTab('usuarios')}
-                    className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1 ${
-                      activeTab === 'usuarios' ? 'bg-slate-800 text-indigo-300' : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                    className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold ${
+                      activeTab === 'usuarios' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                     id="tab-users-mgmt"
                   >
@@ -1846,12 +1877,12 @@ export default function App() {
               </div>
             )}
 
-            {/* Profile details & Backup features */}
-            <div className="hidden lg:flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full border border-slate-750">
-                <span className={`w-2 h-2 rounded-full ${user.avatarColor || 'bg-slate-400'}`} />
-                <span className="font-extrabold text-[11px] text-slate-100">{user.name}</span>
-                <span className="text-[9px] font-black bg-indigo-600 px-1.5 py-0.2 rounded uppercase">
+            {/* Profile details & Cloud status */}
+            <div className="hidden lg:flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-900 rounded-full border border-slate-800 shadow-sm">
+                <span className={`w-2.5 h-2.5 rounded-full ${user.avatarColor || 'bg-indigo-400'} ring-2 ring-slate-800`} />
+                <span className="font-bold text-[12px] text-slate-100">{user.name}</span>
+                <span className="text-[9px] font-black bg-indigo-600/90 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
                   {user.role}
                 </span>
               </div>
@@ -1860,24 +1891,24 @@ export default function App() {
               {user.role !== 'VISITANTE' && (
                 <div className="flex items-center gap-1.5">
                   {user.id.startsWith('fb-') && (
-                    <div className="flex items-center gap-1.5 text-[9px] font-bold font-mono uppercase px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-md">
-                      <Cloud className={`w-3 h-3 ${syncingFirestore ? 'animate-bounce text-indigo-400' : 'text-emerald-400'}`} />
-                      <span>{syncingFirestore ? 'Salvando...' : lastSyncedTime ? `Nuvem Ok (${lastSyncedTime})` : 'Nuvem Ativa'}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono px-3 py-1 bg-slate-900 text-slate-300 border border-slate-800 rounded-full">
+                      <span className={`w-2 h-2 rounded-full ${syncingFirestore ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+                      <span>{syncingFirestore ? 'Salvando...' : 'Nuvem Conectada'}</span>
                     </div>
                   )}
 
                   <button
                     type="button"
                     onClick={handleDownloadBackup}
-                    className="p-1 px-2 hover:bg-indigo-600 rounded bg-indigo-500/10 text-indigo-400 hover:text-white border border-indigo-450/15 duration-100 flex items-center gap-1 font-bold font-mono text-[9px] uppercase tracking-wide cursor-pointer"
+                    className="p-1.5 px-2.5 hover:bg-slate-800 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800 duration-150 flex items-center gap-1 font-bold text-[10px] uppercase tracking-wide cursor-pointer"
                     title="Fazer download de Segurança (Respaldo Completo)"
                   >
-                    <FileDown className="w-3 h-3" />
+                    <FileDown className="w-3.5 h-3.5 text-indigo-400" />
                     Backup
                   </button>
 
-                  <label className="p-1 px-2 hover:bg-slate-850 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:text-white duration-100 flex items-center gap-1 font-bold font-mono text-[9px] uppercase tracking-wide cursor-pointer">
-                    <FileUp className="w-3 h-3" />
+                  <label className="p-1.5 px-2.5 hover:bg-slate-800 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white duration-150 flex items-center gap-1 font-bold text-[10px] uppercase tracking-wide cursor-pointer">
+                    <FileUp className="w-3.5 h-3.5 text-emerald-400" />
                     Restaurar
                     <input
                       type="file"
@@ -1891,11 +1922,11 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowResetConfirm(true)}
-                      className="p-1 px-2 bg-red-950/40 hover:bg-red-900/50 border border-red-900/50 hover:border-red-700 text-red-300 hover:text-red-200 duration-100 flex items-center gap-1 font-bold font-mono text-[9px] uppercase tracking-wide cursor-pointer rounded"
+                      className="p-1.5 px-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-900/50 hover:border-red-700 text-red-300 duration-150 flex items-center gap-1 font-bold text-[10px] uppercase tracking-wide cursor-pointer rounded-xl"
                       title="Limpar todos os lançamentos, fechamentos e auditorias para iniciar o uso real"
                     >
-                      <Trash2 className="w-3 h-3" />
-                      Zerar Dados
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      Zerar
                     </button>
                   )}
                 </div>
@@ -1903,7 +1934,7 @@ export default function App() {
 
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-full hover:bg-red-500/10 hover:text-red-400 text-slate-400 transition-all flex items-center justify-center"
+                className="p-2 rounded-full hover:bg-red-500/10 hover:text-red-400 text-slate-400 transition-all flex items-center justify-center cursor-pointer"
                 title="Sair do Sistema"
                 id="logout-btn"
               >
