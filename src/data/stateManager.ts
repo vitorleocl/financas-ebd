@@ -89,26 +89,26 @@ export function getInitialState(): AppState {
         loadedBoxes = loadedBoxes.map((b: Box) => {
           if (b.id === 'CAIXA_5_EBD') {
             if (
+              b.initialBalance === 76.15 ||
               b.initialBalance === 250.25 || 
               b.initialBalance === 326.40 || 
               b.initialBalance === 326.4 || 
-              b.initialBalance === 0 || 
               b.initialBalance === 250 ||
               typeof b.initialBalance !== 'number'
             ) {
-              return { ...b, initialBalance: 76.15 };
+              return { ...b, initialBalance: 0.00 };
             }
           }
           if (b.id === 'CAIXA_LICOES') {
             if (
+              b.initialBalance === 160.00 ||
               b.initialBalance === 150.00 || 
               b.initialBalance === 310.00 || 
               b.initialBalance === 310 || 
-              b.initialBalance === 0 || 
               b.initialBalance === 150 ||
               typeof b.initialBalance !== 'number'
             ) {
-              return { ...b, initialBalance: 160.00 };
+              return { ...b, initialBalance: 0.00 };
             }
           }
           return b;
@@ -203,14 +203,14 @@ export function recalculateBalances(state: AppState): Box[] {
       name: 'Caixa 5% EBD',
       description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
       balance: 76.15,
-      initialBalance: 76.15
+      initialBalance: 0.00
     },
     {
       id: 'CAIXA_LICOES',
       name: 'Caixa Lições',
       description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
       balance: 160.00,
-      initialBalance: 160.00
+      initialBalance: 0.00
     }
   ];
 
@@ -221,25 +221,25 @@ export function recalculateBalances(state: AppState): Box[] {
     if (existingBox && typeof existingBox.initialBalance === 'number') {
       if (templateBox.id === 'CAIXA_5_EBD') {
         if (
+          existingBox.initialBalance === 76.15 ||
           existingBox.initialBalance === 250.25 || 
           existingBox.initialBalance === 326.40 || 
           existingBox.initialBalance === 326.4 || 
-          existingBox.initialBalance === 0 || 
           existingBox.initialBalance === 250
         ) {
-          initialBalance = 76.15;
+          initialBalance = 0.00;
         } else {
           initialBalance = existingBox.initialBalance;
         }
       } else if (templateBox.id === 'CAIXA_LICOES') {
         if (
+          existingBox.initialBalance === 160.00 ||
           existingBox.initialBalance === 150.00 || 
           existingBox.initialBalance === 310.00 || 
           existingBox.initialBalance === 310 || 
-          existingBox.initialBalance === 0 || 
           existingBox.initialBalance === 150
         ) {
-          initialBalance = 160.00;
+          initialBalance = 0.00;
         } else {
           initialBalance = existingBox.initialBalance;
         }

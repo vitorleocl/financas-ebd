@@ -407,29 +407,29 @@ async function executeSaveStateToFirestore(
 
     // 9. CRITICAL: Recalculate Box Balances for BOTH Caixa 5% and Caixa Lições from the unified transactions!
     let initialBox5 = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 
-                      (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 76.15;
+                      (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 0.00;
     let initialBoxLicoes = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 
-                           (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 160.00;
+                           (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 0.00;
 
     if (
+      initialBox5 === 76.15 ||
       initialBox5 === 250.25 || 
       initialBox5 === 326.40 || 
       initialBox5 === 326.4 || 
-      initialBox5 === 0 || 
       initialBox5 === 250 || 
       typeof initialBox5 !== 'number'
     ) {
-      initialBox5 = 76.15;
+      initialBox5 = 0.00;
     }
     if (
+      initialBoxLicoes === 160.00 ||
       initialBoxLicoes === 150.00 || 
       initialBoxLicoes === 310.00 || 
       initialBoxLicoes === 310 || 
-      initialBoxLicoes === 0 || 
       initialBoxLicoes === 150 || 
       typeof initialBoxLicoes !== 'number'
     ) {
-      initialBoxLicoes = 160.00;
+      initialBoxLicoes = 0.00;
     }
 
     const defaultBoxesTemplate = [
