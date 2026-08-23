@@ -34,6 +34,28 @@ export interface AppState {
 
 const STORAGE_KEY = 'ebd_financial_system_state_v1';
 
+// Helper to identify and purge legacy seed / opening transactions that double-count the starting balance
+export const isLegacySeedTx = (t: any): boolean => {
+  if (!t) return true;
+  const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+  if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+  if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
+  if (t.description && typeof t.description === 'string') {
+    const desc = t.description.toLowerCase().trim();
+    if (
+      desc === 'saldo inicial' || 
+      desc === 'saldo de abertura' || 
+      desc === 'abertura de caixa' ||
+      desc.startsWith('saldo inicial') ||
+      desc.startsWith('saldo de abertura') ||
+      desc.startsWith('abertura de caixa')
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export function getInitialState(): AppState {
   if (typeof window === 'undefined') {
     return {
@@ -65,11 +87,29 @@ export function getInitialState(): AppState {
       let loadedBoxes = parsed.boxes || INITIAL_BOXES;
       if (Array.isArray(loadedBoxes)) {
         loadedBoxes = loadedBoxes.map((b: Box) => {
-          if (b.id === 'CAIXA_5_EBD' && (b.initialBalance === 250.25 || b.initialBalance === 0 || typeof b.initialBalance !== 'number')) {
-            return { ...b, initialBalance: 76.15 };
+          if (b.id === 'CAIXA_5_EBD') {
+            if (
+              b.initialBalance === 250.25 || 
+              b.initialBalance === 326.40 || 
+              b.initialBalance === 326.4 || 
+              b.initialBalance === 0 || 
+              b.initialBalance === 250 ||
+              typeof b.initialBalance !== 'number'
+            ) {
+              return { ...b, initialBalance: 76.15 };
+            }
           }
-          if (b.id === 'CAIXA_LICOES' && (b.initialBalance === 150.00 || b.initialBalance === 0 || typeof b.initialBalance !== 'number')) {
-            return { ...b, initialBalance: 160.00 };
+          if (b.id === 'CAIXA_LICOES') {
+            if (
+              b.initialBalance === 150.00 || 
+              b.initialBalance === 310.00 || 
+              b.initialBalance === 310 || 
+              b.initialBalance === 0 || 
+              b.initialBalance === 150 ||
+              typeof b.initialBalance !== 'number'
+            ) {
+              return { ...b, initialBalance: 160.00 };
+            }
           }
           return b;
         });
@@ -81,7 +121,7 @@ export function getInitialState(): AppState {
       if (Array.isArray(loadedTransactions)) {
         loadedTransactions = loadedTransactions.filter((t: any) => {
           if (!t) return false;
-          if (t.amount === 250.25 || t.amount === 150.00 || (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2'))) {
+          if (isLegacySeedTx(t)) {
             if (t.id) deletedTxIds.add(t.id);
             return false;
           }
@@ -180,13 +220,25 @@ export function recalculateBalances(state: AppState): Box[] {
 
     if (existingBox && typeof existingBox.initialBalance === 'number') {
       if (templateBox.id === 'CAIXA_5_EBD') {
-        if (existingBox.initialBalance === 250.25 || existingBox.initialBalance === 0) {
+        if (
+          existingBox.initialBalance === 250.25 || 
+          existingBox.initialBalance === 326.40 || 
+          existingBox.initialBalance === 326.4 || 
+          existingBox.initialBalance === 0 || 
+          existingBox.initialBalance === 250
+        ) {
           initialBalance = 76.15;
         } else {
           initialBalance = existingBox.initialBalance;
         }
       } else if (templateBox.id === 'CAIXA_LICOES') {
-        if (existingBox.initialBalance === 150.00 || existingBox.initialBalance === 0) {
+        if (
+          existingBox.initialBalance === 150.00 || 
+          existingBox.initialBalance === 310.00 || 
+          existingBox.initialBalance === 310 || 
+          existingBox.initialBalance === 0 || 
+          existingBox.initialBalance === 150
+        ) {
           initialBalance = 160.00;
         } else {
           initialBalance = existingBox.initialBalance;
@@ -199,7 +251,7 @@ export function recalculateBalances(state: AppState): Box[] {
     const boxTransactionsForThisBox = transactions.filter(t => {
       if (!t) return false;
       // Exclude legacy seed opening transactions that duplicate initial balance
-      if (t.amount === 250.25 || t.amount === 150.00 || (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2'))) {
+      if (isLegacySeedTx(t)) {
         return false;
       }
       let bid = t.boxId;

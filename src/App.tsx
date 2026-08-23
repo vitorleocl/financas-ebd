@@ -58,8 +58,22 @@ const mergeAndSortTransactions = (
   
   const isLegacy = (t: any) => {
     if (!t) return true;
-    if (t.amount === 250.25 || t.amount === 150.00) return true;
-    if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+    const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+    if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+    if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
+    if (t.description && typeof t.description === 'string') {
+      const desc = t.description.toLowerCase().trim();
+      if (
+        desc === 'saldo inicial' || 
+        desc === 'saldo de abertura' || 
+        desc === 'abertura de caixa' ||
+        desc.startsWith('saldo inicial') ||
+        desc.startsWith('saldo de abertura') ||
+        desc.startsWith('abertura de caixa')
+      ) {
+        return true;
+      }
+    }
     return false;
   };
 
@@ -374,6 +388,7 @@ export default function App() {
     if (initial.users) {
       initial.users = initial.users.filter(u => !['usr1', 'usr2', 'usr3', 'usr4'].includes(u.id));
     }
+    initial.boxes = recalculateBalances(initial);
     return initial;
   });
 
@@ -691,8 +706,22 @@ export default function App() {
                     // Smart non-destructive merge: start with remote, merge with current local state
                     const isLegacySeedTx = (t: any) => {
                       if (!t) return true;
-                      if (t.amount === 250.25 || t.amount === 150.00) return true;
-                      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+                      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+                      if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+                      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
+                      if (t.description && typeof t.description === 'string') {
+                        const desc = t.description.toLowerCase().trim();
+                        if (
+                          desc === 'saldo inicial' || 
+                          desc === 'saldo de abertura' || 
+                          desc === 'abertura de caixa' ||
+                          desc.startsWith('saldo inicial') ||
+                          desc.startsWith('saldo de abertura') ||
+                          desc.startsWith('abertura de caixa')
+                        ) {
+                          return true;
+                        }
+                      }
                       return false;
                     };
 

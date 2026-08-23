@@ -225,8 +225,22 @@ async function executeSaveStateToFirestore(
     // 4. CRITICAL: Bidirectional Transaction Merging (Preserves transactions from ALL users in real time)
     const isLegacySeedTx = (t: any) => {
       if (!t) return true;
-      if (t.amount === 250.25 || t.amount === 150.00) return true;
-      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+      if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
+      if (t.description && typeof t.description === 'string') {
+        const desc = t.description.toLowerCase().trim();
+        if (
+          desc === 'saldo inicial' || 
+          desc === 'saldo de abertura' || 
+          desc === 'abertura de caixa' ||
+          desc.startsWith('saldo inicial') ||
+          desc.startsWith('saldo de abertura') ||
+          desc.startsWith('abertura de caixa')
+        ) {
+          return true;
+        }
+      }
       return false;
     };
 
@@ -397,10 +411,24 @@ async function executeSaveStateToFirestore(
     let initialBoxLicoes = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 
                            (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 160.00;
 
-    if (initialBox5 === 250.25 || initialBox5 === 0 || typeof initialBox5 !== 'number') {
+    if (
+      initialBox5 === 250.25 || 
+      initialBox5 === 326.40 || 
+      initialBox5 === 326.4 || 
+      initialBox5 === 0 || 
+      initialBox5 === 250 || 
+      typeof initialBox5 !== 'number'
+    ) {
       initialBox5 = 76.15;
     }
-    if (initialBoxLicoes === 150.00 || initialBoxLicoes === 0 || typeof initialBoxLicoes !== 'number') {
+    if (
+      initialBoxLicoes === 150.00 || 
+      initialBoxLicoes === 310.00 || 
+      initialBoxLicoes === 310 || 
+      initialBoxLicoes === 0 || 
+      initialBoxLicoes === 150 || 
+      typeof initialBoxLicoes !== 'number'
+    ) {
       initialBoxLicoes = 160.00;
     }
 
