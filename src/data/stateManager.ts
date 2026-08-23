@@ -61,10 +61,24 @@ export function getInitialState(): AppState {
           }
         });
       }
+
+      let loadedBoxes = parsed.boxes || INITIAL_BOXES;
+      if (Array.isArray(loadedBoxes)) {
+        loadedBoxes = loadedBoxes.map((b: Box) => {
+          if (b.id === 'CAIXA_5_EBD' && (b.initialBalance === 250.25 || b.initialBalance === 0 || typeof b.initialBalance !== 'number')) {
+            return { ...b, initialBalance: 76.15 };
+          }
+          if (b.id === 'CAIXA_LICOES' && (b.initialBalance === 150.00 || b.initialBalance === 0 || typeof b.initialBalance !== 'number')) {
+            return { ...b, initialBalance: 160.00 };
+          }
+          return b;
+        });
+      }
+
       return {
         currentUser: parsed.currentUser || null,
         users: parsed.users || INITIAL_USERS,
-        boxes: parsed.boxes || INITIAL_BOXES,
+        boxes: loadedBoxes,
         categories: loadedCategories,
         transactions: parsed.transactions || INITIAL_TRANSACTIONS,
         people: parsed.people || INITIAL_PEOPLE,
@@ -134,21 +148,39 @@ export function recalculateBalances(state: AppState): Box[] {
       id: 'CAIXA_5_EBD',
       name: 'Caixa 5% EBD',
       description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
-      balance: 0.00,
-      initialBalance: 0.00
+      balance: 76.15,
+      initialBalance: 76.15
     },
     {
       id: 'CAIXA_LICOES',
       name: 'Caixa Lições',
       description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
-      balance: 0.00,
-      initialBalance: 0.00
+      balance: 160.00,
+      initialBalance: 160.00
     }
   ];
 
   return defaultBoxesTemplate.map(templateBox => {
     const existingBox = state.boxes?.find(b => b && b.id === templateBox.id);
-    const box = existingBox || templateBox;
+    let initialBalance = templateBox.initialBalance;
+
+    if (existingBox && typeof existingBox.initialBalance === 'number') {
+      if (templateBox.id === 'CAIXA_5_EBD') {
+        if (existingBox.initialBalance === 250.25 || existingBox.initialBalance === 0) {
+          initialBalance = 76.15;
+        } else {
+          initialBalance = existingBox.initialBalance;
+        }
+      } else if (templateBox.id === 'CAIXA_LICOES') {
+        if (existingBox.initialBalance === 150.00 || existingBox.initialBalance === 0) {
+          initialBalance = 160.00;
+        } else {
+          initialBalance = existingBox.initialBalance;
+        }
+      } else {
+        initialBalance = existingBox.initialBalance;
+      }
+    }
 
     const boxTransactionsForThisBox = transactions.filter(t => {
       if (!t) return false;
@@ -162,12 +194,10 @@ export function recalculateBalances(state: AppState): Box[] {
           bid = 'CAIXA_5_EBD';
         }
       }
-      return bid === box.id;
+      return bid === templateBox.id;
     });
     
-    // Base is starting balance which is constant or starting from zero.
-    const baseBalance = box.initialBalance || 0;
-    
+    // Base is starting balance which is constant or starting from initial balance.
     const balance = boxTransactionsForThisBox.reduce((acc, t) => {
       if (t && t.isApproved !== false) {
         const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
@@ -178,12 +208,13 @@ export function recalculateBalances(state: AppState): Box[] {
         }
       }
       return acc;
-    }, baseBalance);
+    }, initialBalance);
 
     return {
-      ...box,
+      id: templateBox.id,
       name: templateBox.name,
       description: templateBox.description,
+      initialBalance,
       balance: parseFloat(balance.toFixed(2)) // Keep decimal precision safe
     };
   });

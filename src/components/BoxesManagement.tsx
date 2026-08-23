@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Box, Transaction, Category, BoxId, User } from '../types';
-import { ArrowLeftRight, Landmark, Calendar, Search, ArrowUpRight, ArrowDownRight, FileText, CheckCircle, AlertCircle, Trash2, Paperclip } from 'lucide-react';
+import { ArrowLeftRight, Landmark, Calendar, Search, ArrowUpRight, ArrowDownRight, FileText, CheckCircle, AlertCircle, Trash2, Paperclip, Sliders, X } from 'lucide-react';
 import SignaturePad from './SignaturePad';
 
 interface BoxesManagementProps {
@@ -22,6 +22,12 @@ interface BoxesManagementProps {
     description: string;
     signature: string;
   }) => void;
+  onAdjustInitialBalance?: (data: {
+    boxId: BoxId;
+    initialBalance: number;
+    reason: string;
+    signature: string;
+  }) => void;
 }
 
 export default function BoxesManagement({
@@ -31,7 +37,8 @@ export default function BoxesManagement({
   currentUser,
   onViewTransaction,
   onDeleteTransaction,
-  onTransfer
+  onTransfer,
+  onAdjustInitialBalance
 }: BoxesManagementProps) {
   const [selectedBoxId, setSelectedBoxId] = useState<BoxId>('CAIXA_5_EBD');
   const [showTransferForm, setShowTransferForm] = useState(false);
@@ -54,17 +61,43 @@ export default function BoxesManagement({
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
 
+  // Balance adjustment modal state
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustBoxId, setAdjustBoxId] = useState<BoxId>('CAIXA_5_EBD');
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustSign, setAdjustSign] = useState<string | null>(null);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [adjustSuccess, setAdjustSuccess] = useState(false);
+
+  const isMasterOrTreasurer = currentUser?.role === 'MASTER' || currentUser?.role === 'TESOUREIRO';
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
   const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
+    try {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return dateStr;
+    }
   };
 
   const selectedBox = boxes.find(b => b.id === selectedBoxId);
-  const boxTransactions = transactions.filter(t => t.boxId === selectedBoxId);
+  const boxTransactions = transactions.filter(t => {
+    let bid = t.boxId;
+    if (!bid) {
+      if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+          (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+        bid = 'CAIXA_LICOES';
+      } else {
+        bid = 'CAIXA_5_EBD';
+      }
+    }
+    return bid === selectedBoxId;
+  });
 
   // Filter calculations
   const filteredBoxTransactions = boxTransactions.filter(t => {
@@ -142,6 +175,43 @@ export default function BoxesManagement({
     }, 2500);
   };
 
+  const handleAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdjustError(null);
+    setAdjustSuccess(false);
+
+    const val = parseFloat(adjustAmount.replace(/\./g, '').replace(',', '.'));
+    if (isNaN(val) || val < 0) {
+      setAdjustError('Por favor informe um saldo inicial válido maior ou igual a zero.');
+      return;
+    }
+
+    if (!adjustReason.trim()) {
+      setAdjustError('Por favor descreva a justificativa contábil do ajuste de saldo.');
+      return;
+    }
+
+    if (!adjustSign) {
+      setAdjustError('A assinatura do responsável é obrigatória para certificar o ajuste.');
+      return;
+    }
+
+    if (onAdjustInitialBalance) {
+      onAdjustInitialBalance({
+        boxId: adjustBoxId,
+        initialBalance: val,
+        reason: adjustReason,
+        signature: adjustSign
+      });
+    }
+
+    setAdjustSuccess(true);
+    setTimeout(() => {
+      setShowAdjustModal(false);
+      setAdjustSuccess(false);
+    }, 1500);
+  };
+
   return (
     <div className="space-y-6">
       
@@ -153,33 +223,71 @@ export default function BoxesManagement({
             <div
               key={box.id}
               onClick={() => setSelectedBoxId(box.id)}
-              className={`p-6 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+              className={`p-6 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                 isSelected
                   ? 'bg-slate-900 border-slate-800 text-white shadow-md shadow-indigo-950/20'
                   : 'bg-white hover:bg-slate-50 border-slate-100 text-slate-800 shadow-sm'
               }`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <span className={`text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase ${
-                  isSelected ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/25' : 'bg-slate-100/80 text-slate-500 border border-slate-200/55'
-                }`}>
-                  {box.id === 'CAIXA_5_EBD' ? 'Caixa 01' : 'Caixa 02'}
-                </span>
-                <Landmark className={`w-5 h-5 ${isSelected ? 'text-indigo-400' : 'text-slate-400'}`} />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase ${
+                    isSelected ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/25' : 'bg-slate-100/80 text-slate-500 border border-slate-200/55'
+                  }`}>
+                    {box.id === 'CAIXA_5_EBD' ? 'Caixa 01' : 'Caixa 02'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {isMasterOrTreasurer && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAdjustBoxId(box.id);
+                          setAdjustAmount((box.initialBalance || 0).toString().replace('.', ','));
+                          setAdjustReason('');
+                          setAdjustSign(null);
+                          setAdjustError(null);
+                          setAdjustSuccess(false);
+                          setShowAdjustModal(true);
+                        }}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
+                          isSelected 
+                            ? 'bg-white/10 hover:bg-white/20 text-indigo-200 border-white/15' 
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                        title="Ajustar saldo inicial base deste caixa"
+                      >
+                        <Sliders className="w-3 h-3" />
+                        Ajustar Base
+                      </button>
+                    )}
+                    <Landmark className={`w-5 h-5 ${isSelected ? 'text-indigo-400' : 'text-slate-400'}`} />
+                  </div>
+                </div>
+
+                <h3 className="font-extrabold text-base mb-1 tracking-tight">{box.name}</h3>
+                <p className={`text-[11px] leading-relaxed line-clamp-2 ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {box.description}
+                </p>
               </div>
 
-              <h3 className="font-extrabold text-base mb-1 tracking-tight">{box.name}</h3>
-              <p className={`text-[11px] leading-relaxed line-clamp-2 ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
-                {box.description}
-              </p>
-
-              <div className="border-t border-dashed mt-5 pt-4 flex items-center justify-between">
-                <span className={`text-xs font-semibold uppercase tracking-wider ${isSelected ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Saldo Aprovado e Líquido
-                </span>
-                <span className={`text-xl font-black font-mono tracking-tight ${isSelected ? 'text-indigo-300' : 'text-indigo-600'}`}>
-                  {formatCurrency(box.balance)}
-                </span>
+              <div className="border-t border-dashed mt-5 pt-4 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={`${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
+                    Saldo Base Inicial:
+                  </span>
+                  <span className={`font-mono font-semibold ${isSelected ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {formatCurrency(box.initialBalance || 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Saldo Total Aprovado
+                  </span>
+                  <span className={`text-xl font-black font-mono tracking-tight ${isSelected ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                    {formatCurrency(box.balance)}
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -553,6 +661,118 @@ export default function BoxesManagement({
         </div>
 
       </div>
+
+      {/* Saldo Inicial Adjustment Modal */}
+      {showAdjustModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">Ajuste de Saldo Inicial</h3>
+                  <p className="text-[11px] text-slate-400">Definição contábil do saldo base do caixa</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdjustModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {adjustSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 flex items-start gap-2 text-xs">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Saldo Base Atualizado!</span>
+                  <span className="text-[10px]">O saldo foi recalculado e sincronizado com a nuvem e todos os dispositivos.</span>
+                </div>
+              </div>
+            )}
+
+            {adjustError && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 flex items-start gap-2 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Atenção</span>
+                  <span className="text-[10px]">{adjustError}</span>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleAdjustSubmit} className="space-y-4 text-xs font-semibold">
+              <div className="space-y-1">
+                <label className="text-slate-600 font-bold uppercase tracking-wider block">Caixa</label>
+                <select
+                  value={adjustBoxId}
+                  onChange={(e) => {
+                    const bid = e.target.value as BoxId;
+                    setAdjustBoxId(bid);
+                    const b = boxes.find(bx => bx.id === bid);
+                    if (b) setAdjustAmount((b.initialBalance || 0).toString().replace('.', ','));
+                  }}
+                  className="block w-full border border-slate-200 rounded-xl bg-white p-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                >
+                  <option value="CAIXA_5_EBD">Caixa 01 - 5% EBD (Atual: {formatCurrency(boxes.find(b => b.id === 'CAIXA_5_EBD')?.initialBalance || 0)})</option>
+                  <option value="CAIXA_LICOES">Caixa 02 - Lições (Atual: {formatCurrency(boxes.find(b => b.id === 'CAIXA_LICOES')?.initialBalance || 0)})</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-600 font-bold uppercase tracking-wider block">Novo Saldo Base Inicial (R$)</label>
+                <input
+                  type="text"
+                  required
+                  value={adjustAmount}
+                  onChange={(e) => setAdjustAmount(e.target.value)}
+                  placeholder="Ex: 76,15 ou 160,00"
+                  className="block w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-mono font-black text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 font-normal">
+                  Dica: Valores homologados pela diretoria são R$ 76,15 para Caixa 5% e R$ 160,00 para Lições.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-600 font-bold uppercase tracking-wider block">Justificativa do Ajuste</label>
+                <textarea
+                  required
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="Ex: Ajuste e consolidação do saldo inicial homologado pela diretoria da EBD"
+                  rows={2}
+                  className="block w-full border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="pt-1">
+                <SignaturePad onChange={setAdjustSign} value={adjustSign} />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustModal(false)}
+                  className="w-1/3 py-2.5 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  Salvar Ajuste de Saldo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -12,15 +12,15 @@ export const INITIAL_BOXES: Box[] = [
     id: 'CAIXA_5_EBD',
     name: 'Caixa 5% EBD',
     description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
-    balance: 0.00,
-    initialBalance: 0.00
+    balance: 76.15,
+    initialBalance: 76.15
   },
   {
     id: 'CAIXA_LICOES',
     name: 'Caixa Lições',
     description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
-    balance: 0.00,
-    initialBalance: 0.00
+    balance: 160.00,
+    initialBalance: 160.00
   }
 ];
 

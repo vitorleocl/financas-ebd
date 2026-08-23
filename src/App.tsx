@@ -1710,6 +1710,39 @@ export default function App() {
     updateStateAndPersist(updatedState);
   };
 
+  // Adjust box initial balance handler (Master/Treasurer)
+  const handleAdjustInitialBalance = (data: {
+    boxId: BoxId;
+    initialBalance: number;
+    reason: string;
+    signature: string;
+  }) => {
+    const updatedState = { ...state };
+    updatedState.boxes = (updatedState.boxes || []).map(b => {
+      if (b && b.id === data.boxId) {
+        return {
+          ...b,
+          initialBalance: data.initialBalance
+        };
+      }
+      return b;
+    });
+
+    updatedState.boxes = recalculateBalances(updatedState);
+
+    const targetBox = updatedState.boxes.find(b => b.id === data.boxId);
+    const boxName = targetBox?.name || (data.boxId === 'CAIXA_5_EBD' ? 'Caixa 5% EBD' : 'Caixa Lições');
+    const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.initialBalance);
+
+    addAuditLog(
+      updatedState,
+      'AJUSTE_SALDO_BASE',
+      `Ajustou o saldo base inicial do ${boxName} para ${formatted}. Motivo: ${data.reason}. Assinado por ${state.currentUser?.name || 'Administrador'}.`
+    );
+
+    updateStateAndPersist(updatedState);
+  };
+
   // Weekly closing drafting handler (Treasurer)
   const handleAddClosing = (data: {
     startDate: string;
@@ -2428,6 +2461,7 @@ export default function App() {
                 onViewTransaction={(tx) => setActiveReceipt(tx)}
                 onDeleteTransaction={handleDeleteTransaction}
                 onTransfer={handleTransferFunds}
+                onAdjustInitialBalance={handleAdjustInitialBalance}
               />
             )}
 
