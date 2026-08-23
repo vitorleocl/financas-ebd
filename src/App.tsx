@@ -84,14 +84,15 @@ const mergeAndSortTransactions = (
             isApproved,
             approvedBy: isApproved ? approvedBy : undefined,
             approvedAt: isApproved ? approvedAt : undefined,
-            attachment: localTx.attachment || remoteTx.attachment
+            attachment: localTx.attachment || remoteTx.attachment,
+            signature: localTx.signature || remoteTx.signature
           });
         }
       }
     });
   }
 
-  // 3. Guarantee any transaction recorded in approvedMap has isApproved: true
+  // 3. Guarantee any transaction recorded in approvedMap has isApproved: true and valid boxId
   const result: Transaction[] = [];
   map.forEach(tx => {
     if (approvedMap && approvedMap.has(tx.id)) {
@@ -99,6 +100,14 @@ const mergeAndSortTransactions = (
       tx.isApproved = true;
       if (!tx.approvedBy && approvalData?.approvedBy) tx.approvedBy = approvalData.approvedBy;
       if (!tx.approvedAt && approvalData?.approvedAt) tx.approvedAt = approvalData.approvedAt;
+    }
+    if (!tx.boxId) {
+      if (tx.categoryId === 'cat-ent-3' || tx.categoryId === 'cat-sai-1' || 
+          (tx.description && (tx.description.toLowerCase().includes('revista') || tx.description.toLowerCase().includes('lição') || tx.description.toLowerCase().includes('licao')))) {
+        tx.boxId = 'CAIXA_LICOES';
+      } else {
+        tx.boxId = 'CAIXA_5_EBD';
+      }
     }
     result.push(tx);
   });
@@ -681,19 +690,22 @@ export default function App() {
                   }
                   
                   if (savedState.people && Array.isArray(savedState.people)) {
-                    updatedState.people = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
+                    updatedState.people = mergeArraysById(current.people || [], savedState.people).filter((p: any) => p && p.id && !deletedPId.has(p.id));
                   }
 
                   if (savedState.closings && Array.isArray(savedState.closings)) {
-                    updatedState.closings = savedState.closings.filter((c: any) => c && c.id && !deletedCId.has(c.id));
+                    updatedState.closings = mergeClosings(current.closings || [], savedState.closings).filter((c: any) => c && c.id && !deletedCId.has(c.id));
                   }
 
                   if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
-                    updatedState.auditLogs = [...savedState.auditLogs];
+                    updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
                   }
 
                   // Recalculate box balances automatically based on the remote transactions list to ensure 100% mathematical consistency
                   updatedState.boxes = recalculateBalances(updatedState);
+                  
+                  // Save state locally to keep localStorage in sync with cloud snapshot
+                  saveState(updatedState);
                   const emailLower = fbUser.email?.toLowerCase().trim() || '';
                   if (savedState.users && Array.isArray(savedState.users)) {
                     // Clear pending edit flags if the remote state has caught up with our local edit
@@ -1324,10 +1336,14 @@ export default function App() {
     const updatedState = { ...state };
     
     // Generate readable transaction code (eg: TX-1009)
-    const lastNum = updatedState.transactions.length > 0
-      ? parseInt(updatedState.transactions[0].transactionNum.replace('TX-', ''))
-      : 1000;
-    const nextCode = `TX-${lastNum + 1}`;
+    const maxNum = (updatedState.transactions || []).reduce((max, t) => {
+      if (t && t.transactionNum && t.transactionNum.startsWith('TX-')) {
+        const n = parseInt(t.transactionNum.replace('TX-', ''), 10);
+        if (!isNaN(n) && n > max) return n;
+      }
+      return max;
+    }, 1000);
+    const nextCode = `TX-${maxNum + 1}`;
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,

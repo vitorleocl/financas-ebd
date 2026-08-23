@@ -112,9 +112,7 @@ export async function saveStateToFirestore(
     try {
       const userDocRef = doc(db, "ebd_states", "shared_church_ebd");
       
-      // Fetch latest remote users directly from the server to bypass stale cache and prevent overwriting concurrent registrations!
-      let mergedUsers = stateData.users || [];
-      let finalDeletedEmails: string[] = [];
+      // 1. Fetch latest remote document directly from the server to bypass cache and prevent overwriting concurrent actions
       let docSnap: any = null;
       try {
         try {
@@ -123,158 +121,304 @@ export async function saveStateToFirestore(
           console.warn("getDocFromServer failed, trying standard getDoc (cache/hybrid)...", srvErr);
           docSnap = await getDoc(userDocRef);
         }
-
-        if (docSnap.exists()) {
-          const remoteData = docSnap.data();
-          const remoteUsers = remoteData.users || [];
-          
-          // Build set of deleted emails
-          const deletedSet = new Set<string>();
-          const rawDeleted = [
-            ...(remoteData.deletedEmails || []),
-            ...(deletedUsernames || [])
-          ];
-          rawDeleted.forEach((e: string) => {
-            if (e) {
-              deletedSet.add(e.toLowerCase().trim());
-            }
-          });
-
-          // Helper to safely find custom administrative edits case-insensitively
-          const getPendingEdit = (email: string) => {
-            if (!editedUsers) return null;
-            const clean = email.toLowerCase().trim();
-            const foundKey = Object.keys(editedUsers).find(k => k.toLowerCase().trim() === clean);
-            return foundKey ? editedUsers[foundKey] : null;
-          };
-
-          const map = new Map<string, any>();
-          
-          // 1. First, populate map with the local users list (contains latest admin updates and role assignments)
-          mergedUsers.forEach((u: any) => {
-            if (u && u.username) {
-              const key = u.username.toLowerCase().trim();
-              if (!deletedSet.has(key)) {
-                let mergedUser = { ...u };
-                
-                // If there's an active local edit passed explicitly, apply it just in case
-                const edit = getPendingEdit(key);
-                if (edit) {
-                  mergedUser.role = edit.role;
-                  mergedUser.name = edit.name;
-                  mergedUser.avatarColor = mergedUser.role === 'MASTER' ? 'bg-indigo-900' : mergedUser.role === 'TESOUREIRO' ? 'bg-blue-600' : mergedUser.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
-                }
-                
-                map.set(key, mergedUser);
-              }
-            }
-          });
-          
-          // 2. Second, merge remote users that are NOT present in local state (concurrent registrations/invites)
-          remoteUsers.forEach((u: any) => {
-            if (u && u.username) {
-              const key = u.username.toLowerCase().trim();
-              if (!deletedSet.has(key)) {
-                if (!map.has(key)) {
-                  // This is a concurrent registration from another device that hasn't synced locally yet
-                  map.set(key, u);
-                } else {
-                  // If they exist in both, we keep the local version (with its updated role), but we can upgrade IDs if needed
-                  const localUser = map.get(key);
-                  if (u.id !== localUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && localUser.id.startsWith('fb-invite-')) {
-                    localUser.id = u.id;
-                    map.set(key, localUser);
-                  }
-                }
-              }
-            }
-          });
-          mergedUsers = Array.from(map.values());
-
-          // Filter out active users from the deletedEmails list to allow clean re-invites
-          const activeEmails = new Set(mergedUsers.map((u: any) => u.username.toLowerCase().trim()));
-          finalDeletedEmails = Array.from(deletedSet).filter((e: string) => !activeEmails.has(e));
-        } else {
-          finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
-        }
       } catch (err) {
-        console.warn("Could not fetch remote users for merging before save:", err);
-        finalDeletedEmails = (deletedUsernames || []).map(e => e.toLowerCase().trim());
+        console.warn("Could not fetch remote document before save:", err);
       }
 
-      // Ensure all approved transactions retain isApproved: true (Once approved, ALWAYS approved)
-      let finalTransactions = stateData.transactions || [];
-      if (docSnap && docSnap.exists()) {
-        const remoteData = docSnap.data();
-        const remoteTransactions = remoteData.transactions || [];
-        const remoteApprovedMap = new Map<string, any>();
+      const remoteData = docSnap && docSnap.exists() ? docSnap.data() : null;
+
+      // 2. Build complete set of deleted IDs and emails
+      const deletedTxIds = new Set<string>([
+        ...(remoteData?.deletedTransactionIds || []),
+        ...(stateData.deletedTransactionIds || [])
+      ]);
+      const deletedClosingIds = new Set<string>([
+        ...(remoteData?.deletedClosingIds || []),
+        ...(stateData.deletedClosingIds || [])
+      ]);
+      const deletedPeopleIds = new Set<string>([
+        ...(remoteData?.deletedPeopleIds || []),
+        ...(stateData.deletedPeopleIds || [])
+      ]);
+
+      const deletedSet = new Set<string>();
+      const rawDeleted = [
+        ...(remoteData?.deletedEmails || []),
+        ...(deletedUsernames || [])
+      ];
+      rawDeleted.forEach((e: string) => {
+        if (e) {
+          deletedSet.add(e.toLowerCase().trim());
+        }
+      });
+
+      // 3. User Merging
+      let mergedUsers = stateData.users || [];
+      const getPendingEdit = (email: string) => {
+        if (!editedUsers) return null;
+        const clean = email.toLowerCase().trim();
+        const foundKey = Object.keys(editedUsers).find(k => k.toLowerCase().trim() === clean);
+        return foundKey ? editedUsers[foundKey] : null;
+      };
+
+      const userMap = new Map<string, any>();
+      // Populate with local users
+      mergedUsers.forEach((u: any) => {
+        if (u && u.username) {
+          const key = u.username.toLowerCase().trim();
+          if (!deletedSet.has(key)) {
+            let mergedUser = { ...u };
+            const edit = getPendingEdit(key);
+            if (edit) {
+              mergedUser.role = edit.role;
+              mergedUser.name = edit.name;
+              mergedUser.avatarColor = edit.role === 'MASTER' ? 'bg-indigo-900' : edit.role === 'TESOUREIRO' ? 'bg-blue-600' : edit.role === 'DIRIGENTE' ? 'bg-emerald-600' : 'bg-slate-500';
+            }
+            userMap.set(key, mergedUser);
+          }
+        }
+      });
+
+      // Merge remote users (concurrent registrations/invites)
+      if (remoteData?.users && Array.isArray(remoteData.users)) {
+        remoteData.users.forEach((u: any) => {
+          if (u && u.username) {
+            const key = u.username.toLowerCase().trim();
+            if (!deletedSet.has(key)) {
+              if (!userMap.has(key)) {
+                userMap.set(key, u);
+              } else {
+                const localUser = userMap.get(key);
+                if (u.id !== localUser.id && u.id.startsWith('fb-') && !u.id.startsWith('fb-invite-') && localUser.id.startsWith('fb-invite-')) {
+                  localUser.id = u.id;
+                  userMap.set(key, localUser);
+                }
+              }
+            }
+          }
+        });
+      }
+      mergedUsers = Array.from(userMap.values());
+      const activeEmails = new Set(mergedUsers.map((u: any) => u.username.toLowerCase().trim()));
+      const finalDeletedEmails = Array.from(deletedSet).filter((e: string) => !activeEmails.has(e));
+
+      // 4. CRITICAL: Bidirectional Transaction Merging (Preserves transactions from ALL users in real time)
+      const txMap = new Map<string, any>();
+      const remoteTransactions = remoteData?.transactions || [];
+      const localTransactions = stateData.transactions || [];
+
+      // Add remote transactions first (excluding deleted)
+      if (Array.isArray(remoteTransactions)) {
         remoteTransactions.forEach((rt: any) => {
-          if (rt && rt.id && rt.isApproved) {
-            remoteApprovedMap.set(rt.id, rt);
+          if (rt && rt.id && !deletedTxIds.has(rt.id)) {
+            txMap.set(rt.id, { ...rt });
           }
-        });
-
-        finalTransactions = finalTransactions.map((tx: any) => {
-          if (!tx) return tx;
-          if (tx.isApproved) return tx;
-          if (remoteApprovedMap.has(tx.id)) {
-            const remoteApproved = remoteApprovedMap.get(tx.id);
-            return {
-              ...tx,
-              isApproved: true,
-              approvedBy: remoteApproved.approvedBy || tx.approvedBy,
-              approvedAt: remoteApproved.approvedAt || tx.approvedAt
-            };
-          }
-          return tx;
         });
       }
 
-      // Ensure box balances are 100% mathematically correct based on transactions being saved
-      let finalBoxes = stateData.boxes || [];
-      if (Array.isArray(finalBoxes)) {
-        const txs = finalTransactions;
-        finalBoxes = finalBoxes.map((box: any) => {
-          if (!box) return box;
-          const boxTransactions = txs.filter((t: any) => {
-            if (!t) return false;
-            let bid = t.boxId;
-            if (!bid) {
-              if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
-                  (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
-                bid = 'CAIXA_LICOES';
-              } else {
-                bid = 'CAIXA_5_EBD';
-              }
+      // Merge local transactions
+      if (Array.isArray(localTransactions)) {
+        localTransactions.forEach((lt: any) => {
+          if (lt && lt.id && !deletedTxIds.has(lt.id)) {
+            if (!txMap.has(lt.id)) {
+              // New local transaction added by this user (e.g. Vitor or Eduarda)
+              txMap.set(lt.id, { ...lt });
+            } else {
+              // Exists in both! Merge properties ensuring isApproved: true is NEVER reverted
+              const remoteTx = txMap.get(lt.id);
+              const isApproved = remoteTx.isApproved === true || lt.isApproved === true;
+              const approvedBy = lt.approvedBy || remoteTx.approvedBy;
+              const approvedAt = lt.approvedAt || remoteTx.approvedAt;
+
+              txMap.set(lt.id, {
+                ...remoteTx,
+                ...lt,
+                isApproved,
+                approvedBy: isApproved ? approvedBy : undefined,
+                approvedAt: isApproved ? approvedAt : undefined,
+                attachment: lt.attachment || remoteTx.attachment,
+                signature: lt.signature || remoteTx.signature
+              });
             }
-            return bid === box.id;
-          });
-          const baseBalance = box.initialBalance || 0;
-          const balance = boxTransactions.reduce((acc: number, t: any) => {
-            if (t && t.isApproved !== false) {
-              const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
-              if (t.type === 'ENTRADA') {
-                return acc + amt;
-              } else {
-                return acc - amt;
-              }
-            }
-            return acc;
-          }, baseBalance);
-          return {
-            ...box,
-            balance: parseFloat(balance.toFixed(2))
-          };
+          }
         });
       }
+
+      // Ensure fallback boxId if missing
+      const finalTransactions = Array.from(txMap.values()).map((t: any) => {
+        if (!t.boxId) {
+          if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+              (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+            t.boxId = 'CAIXA_LICOES';
+          } else {
+            t.boxId = 'CAIXA_5_EBD';
+          }
+        }
+        return t;
+      }).sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt || a.id.replace('tx-', '')).getTime();
+        const timeB = new Date(b.createdAt || b.id.replace('tx-', '')).getTime();
+        return timeB - timeA;
+      });
+
+      // 5. Bidirectional Merging for Closings (Atas)
+      const closingMap = new Map<string, any>();
+      const remoteClosings = remoteData?.closings || [];
+      const localClosings = stateData.closings || [];
+
+      if (Array.isArray(remoteClosings)) {
+        remoteClosings.forEach((rc: any) => {
+          if (rc && rc.id && !deletedClosingIds.has(rc.id)) {
+            closingMap.set(rc.id, { ...rc });
+          }
+        });
+      }
+
+      if (Array.isArray(localClosings)) {
+        localClosings.forEach((lc: any) => {
+          if (lc && lc.id && !deletedClosingIds.has(lc.id)) {
+            if (!closingMap.has(lc.id)) {
+              closingMap.set(lc.id, { ...lc });
+            } else {
+              const remoteC = closingMap.get(lc.id);
+              const isApproved = remoteC.status === 'APROVADO' || lc.status === 'APROVADO';
+              closingMap.set(lc.id, {
+                ...remoteC,
+                ...lc,
+                status: isApproved ? 'APROVADO' : lc.status || remoteC.status,
+                dirigenteApprover: lc.dirigenteApprover || remoteC.dirigenteApprover,
+                dirigenteApprovedAt: lc.dirigenteApprovedAt || remoteC.dirigenteApprovedAt
+              });
+            }
+          }
+        });
+      }
+      const finalClosings = Array.from(closingMap.values()).sort((a: any, b: any) => 
+        new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+      );
+
+      // 6. Bidirectional Merging for People
+      const peopleMap = new Map<string, any>();
+      const remotePeople = remoteData?.people || [];
+      const localPeople = stateData.people || [];
+
+      if (Array.isArray(remotePeople)) {
+        remotePeople.forEach((rp: any) => {
+          if (rp && rp.id && !deletedPeopleIds.has(rp.id)) {
+            peopleMap.set(rp.id, { ...rp });
+          }
+        });
+      }
+
+      if (Array.isArray(localPeople)) {
+        localPeople.forEach((lp: any) => {
+          if (lp && lp.id && !deletedPeopleIds.has(lp.id)) {
+            peopleMap.set(lp.id, { ...lp });
+          }
+        });
+      }
+      const finalPeople = Array.from(peopleMap.values());
+
+      // 7. Categories Merging (Ensure default initial categories + custom ones)
+      const catMap = new Map<string, any>();
+      if (Array.isArray(remoteData?.categories)) {
+        remoteData.categories.forEach((c: any) => {
+          if (c && c.id) catMap.set(c.id, c);
+        });
+      }
+      if (Array.isArray(stateData.categories)) {
+        stateData.categories.forEach((c: any) => {
+          if (c && c.id) catMap.set(c.id, c);
+        });
+      }
+      const finalCategories = Array.from(catMap.values());
+
+      // 8. Audit Logs Merging (Keep latest 200)
+      const auditMap = new Map<string, any>();
+      if (Array.isArray(remoteData?.auditLogs)) {
+        remoteData.auditLogs.forEach((l: any) => {
+          if (l && l.id) auditMap.set(l.id, l);
+        });
+      }
+      if (Array.isArray(stateData.auditLogs)) {
+        stateData.auditLogs.forEach((l: any) => {
+          if (l && l.id) auditMap.set(l.id, l);
+        });
+      }
+      const finalAuditLogs = Array.from(auditMap.values())
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 200);
+
+      // 9. CRITICAL: Recalculate Box Balances for BOTH Caixa 5% and Caixa Lições from the unified transactions!
+      const initialBox5 = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 
+                          (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 0.00;
+      const initialBoxLicoes = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 
+                               (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 0.00;
+
+      const defaultBoxesTemplate = [
+        {
+          id: 'CAIXA_5_EBD',
+          name: 'Caixa 5% EBD',
+          description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
+          balance: 0.00,
+          initialBalance: initialBox5
+        },
+        {
+          id: 'CAIXA_LICOES',
+          name: 'Caixa Lições',
+          description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
+          balance: 0.00,
+          initialBalance: initialBoxLicoes
+        }
+      ];
+
+      const finalBoxes = defaultBoxesTemplate.map(box => {
+        const boxTransactions = finalTransactions.filter((t: any) => {
+          if (!t) return false;
+          let bid = t.boxId;
+          if (!bid) {
+            if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+                (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+              bid = 'CAIXA_LICOES';
+            } else {
+              bid = 'CAIXA_5_EBD';
+            }
+          }
+          return bid === box.id;
+        });
+
+        const baseBalance = box.initialBalance || 0;
+        const balance = boxTransactions.reduce((acc: number, t: any) => {
+          if (t && t.isApproved !== false) {
+            const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
+            if (t.type === 'ENTRADA') {
+              return acc + amt;
+            } else {
+              return acc - amt;
+            }
+          }
+          return acc;
+        }, baseBalance);
+
+        return {
+          ...box,
+          balance: parseFloat(balance.toFixed(2))
+        };
+      });
 
       // Ensure currentUser is null so credentials/local sessions are kept local
       const stateToSave = {
-        ...stateData,
         transactions: finalTransactions,
         boxes: finalBoxes,
+        closings: finalClosings,
+        people: finalPeople,
+        categories: finalCategories,
+        auditLogs: finalAuditLogs,
         users: mergedUsers,
         deletedEmails: finalDeletedEmails,
+        deletedTransactionIds: Array.from(deletedTxIds),
+        deletedClosingIds: Array.from(deletedClosingIds),
+        deletedPeopleIds: Array.from(deletedPeopleIds),
         currentUser: null,
         updatedAt: new Date().toISOString()
       };
