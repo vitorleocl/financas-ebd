@@ -75,16 +75,30 @@ export function getInitialState(): AppState {
         });
       }
 
+      // Filter out legacy seed / opening transactions that duplicate initial balance
+      const deletedTxIds = new Set<string>(parsed.deletedTransactionIds || []);
+      let loadedTransactions = parsed.transactions || INITIAL_TRANSACTIONS;
+      if (Array.isArray(loadedTransactions)) {
+        loadedTransactions = loadedTransactions.filter((t: any) => {
+          if (!t) return false;
+          if (t.amount === 250.25 || t.amount === 150.00 || (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2'))) {
+            if (t.id) deletedTxIds.add(t.id);
+            return false;
+          }
+          return !deletedTxIds.has(t.id);
+        });
+      }
+
       return {
         currentUser: parsed.currentUser || null,
         users: parsed.users || INITIAL_USERS,
         boxes: loadedBoxes,
         categories: loadedCategories,
-        transactions: parsed.transactions || INITIAL_TRANSACTIONS,
+        transactions: loadedTransactions,
         people: parsed.people || INITIAL_PEOPLE,
         closings: parsed.closings || INITIAL_CLOSINGS,
         auditLogs: parsed.auditLogs || INITIAL_AUDIT_LOGS,
-        deletedTransactionIds: parsed.deletedTransactionIds || [],
+        deletedTransactionIds: Array.from(deletedTxIds),
         deletedClosingIds: parsed.deletedClosingIds || [],
         deletedPeopleIds: parsed.deletedPeopleIds || []
       };
@@ -184,6 +198,10 @@ export function recalculateBalances(state: AppState): Box[] {
 
     const boxTransactionsForThisBox = transactions.filter(t => {
       if (!t) return false;
+      // Exclude legacy seed opening transactions that duplicate initial balance
+      if (t.amount === 250.25 || t.amount === 150.00 || (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2'))) {
+        return false;
+      }
       let bid = t.boxId;
       if (!bid) {
         // Fallback for transactions missing boxId

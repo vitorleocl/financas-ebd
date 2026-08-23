@@ -56,10 +56,17 @@ const mergeAndSortTransactions = (
 ): Transaction[] => {
   const map = new Map<string, Transaction>();
   
+  const isLegacy = (t: any) => {
+    if (!t) return true;
+    if (t.amount === 250.25 || t.amount === 150.00) return true;
+    if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+    return false;
+  };
+
   // 1. First add remote transactions
   if (Array.isArray(remote)) {
     remote.forEach(t => {
-      if (t && t.id) {
+      if (t && t.id && !isLegacy(t)) {
         map.set(t.id, { ...t });
       }
     });
@@ -68,7 +75,7 @@ const mergeAndSortTransactions = (
   // 2. Merge local transactions
   if (Array.isArray(local)) {
     local.forEach(localTx => {
-      if (localTx && localTx.id) {
+      if (localTx && localTx.id && !isLegacy(localTx)) {
         if (!map.has(localTx.id)) {
           map.set(localTx.id, { ...localTx });
         } else {
@@ -682,34 +689,51 @@ export default function App() {
                     }
 
                     // Smart non-destructive merge: start with remote, merge with current local state
+                    const isLegacySeedTx = (t: any) => {
+                      if (!t) return true;
+                      if (t.amount === 250.25 || t.amount === 150.00) return true;
+                      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+                      return false;
+                    };
+
                     const txMap = new Map<string, any>();
                     
                     savedState.transactions.forEach((rt: any) => {
-                      if (rt && rt.id && !deletedTxIds.has(rt.id)) {
-                        txMap.set(rt.id, { ...rt });
+                      if (rt && rt.id) {
+                        if (isLegacySeedTx(rt)) {
+                          deletedTxIds.add(rt.id);
+                        } else if (!deletedTxIds.has(rt.id)) {
+                          txMap.set(rt.id, { ...rt });
+                        }
                       }
                     });
 
                     (current.transactions || []).forEach((lt: any) => {
-                      if (lt && lt.id && !deletedTxIds.has(lt.id)) {
-                        if (!txMap.has(lt.id)) {
-                          txMap.set(lt.id, { ...lt });
-                        } else {
-                          const remoteTx = txMap.get(lt.id);
-                          const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
-                          const approval = approvedTransactionsRef.current.get(lt.id);
-                          txMap.set(lt.id, {
-                            ...remoteTx,
-                            ...lt,
-                            isApproved,
-                            approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
-                            approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
-                            attachment: lt.attachment || remoteTx.attachment,
-                            signature: lt.signature || remoteTx.signature
-                          });
+                      if (lt && lt.id) {
+                        if (isLegacySeedTx(lt)) {
+                          deletedTxIds.add(lt.id);
+                        } else if (!deletedTxIds.has(lt.id)) {
+                          if (!txMap.has(lt.id)) {
+                            txMap.set(lt.id, { ...lt });
+                          } else {
+                            const remoteTx = txMap.get(lt.id);
+                            const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
+                            const approval = approvedTransactionsRef.current.get(lt.id);
+                            txMap.set(lt.id, {
+                              ...remoteTx,
+                              ...lt,
+                              isApproved,
+                              approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
+                              approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
+                              attachment: lt.attachment || remoteTx.attachment,
+                              signature: lt.signature || remoteTx.signature
+                            });
+                          }
                         }
                       }
                     });
+
+                    updatedState.deletedTransactionIds = Array.from(deletedTxIds);
 
                     updatedState.transactions = Array.from(txMap.values())
                       .map((t: any) => {

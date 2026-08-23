@@ -223,15 +223,26 @@ async function executeSaveStateToFirestore(
     const finalDeletedEmails = Array.from(deletedSet).filter((e: string) => !activeEmails.has(e));
 
     // 4. CRITICAL: Bidirectional Transaction Merging (Preserves transactions from ALL users in real time)
+    const isLegacySeedTx = (t: any) => {
+      if (!t) return true;
+      if (t.amount === 250.25 || t.amount === 150.00) return true;
+      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2')) return true;
+      return false;
+    };
+
     const txMap = new Map<string, any>();
     const remoteTransactions = remoteData?.transactions || [];
     const localTransactions = stateData.transactions || [];
 
-    // Add remote transactions first (excluding deleted)
+    // Add remote transactions first (excluding deleted and legacy seeds)
     if (Array.isArray(remoteTransactions)) {
       remoteTransactions.forEach((rt: any) => {
-        if (rt && rt.id && !deletedTxIds.has(rt.id)) {
-          txMap.set(rt.id, { ...rt });
+        if (rt && rt.id) {
+          if (isLegacySeedTx(rt)) {
+            deletedTxIds.add(rt.id);
+          } else if (!deletedTxIds.has(rt.id)) {
+            txMap.set(rt.id, { ...rt });
+          }
         }
       });
     }
@@ -239,30 +250,36 @@ async function executeSaveStateToFirestore(
     // Merge local transactions (guarantees newly created or newly approved transactions are never lost)
     if (Array.isArray(localTransactions)) {
       localTransactions.forEach((lt: any) => {
-        if (lt && lt.id && !deletedTxIds.has(lt.id)) {
-          if (!txMap.has(lt.id)) {
-            // New local transaction added by this user (e.g. Vitor or Eduarda)
-            txMap.set(lt.id, { ...lt });
-          } else {
-            // Exists in both! Merge properties ensuring isApproved: true is NEVER reverted
-            const remoteTx = txMap.get(lt.id);
-            const isApproved = remoteTx.isApproved === true || lt.isApproved === true;
-            const approvedBy = lt.approvedBy || remoteTx.approvedBy;
-            const approvedAt = lt.approvedAt || remoteTx.approvedAt;
+        if (lt && lt.id) {
+          if (isLegacySeedTx(lt)) {
+            deletedTxIds.add(lt.id);
+          } else if (!deletedTxIds.has(lt.id)) {
+            if (!txMap.has(lt.id)) {
+              // New local transaction added by this user (e.g. Vitor or Eduarda)
+              txMap.set(lt.id, { ...lt });
+            } else {
+              // Exists in both! Merge properties ensuring isApproved: true is NEVER reverted
+              const remoteTx = txMap.get(lt.id);
+              const isApproved = remoteTx.isApproved === true || lt.isApproved === true;
+              const approvedBy = lt.approvedBy || remoteTx.approvedBy;
+              const approvedAt = lt.approvedAt || remoteTx.approvedAt;
 
-            txMap.set(lt.id, {
-              ...remoteTx,
-              ...lt,
-              isApproved,
-              approvedBy: isApproved ? approvedBy : undefined,
-              approvedAt: isApproved ? approvedAt : undefined,
-              attachment: lt.attachment || remoteTx.attachment,
-              signature: lt.signature || remoteTx.signature
-            });
+              txMap.set(lt.id, {
+                ...remoteTx,
+                ...lt,
+                isApproved,
+                approvedBy: isApproved ? approvedBy : undefined,
+                approvedAt: isApproved ? approvedAt : undefined,
+                attachment: lt.attachment || remoteTx.attachment,
+                signature: lt.signature || remoteTx.signature
+              });
+            }
           }
         }
       });
     }
+
+    const finalDeletedTxIds = Array.from(deletedTxIds);
 
     // Ensure fallback boxId if missing
     const finalTransactions = Array.from(txMap.values()).map((t: any) => {
