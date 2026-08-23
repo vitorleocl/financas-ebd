@@ -56,31 +56,10 @@ const mergeAndSortTransactions = (
 ): Transaction[] => {
   const map = new Map<string, Transaction>();
   
-  const isLegacy = (t: any) => {
-    if (!t) return true;
-    const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
-    if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
-    if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
-    if (t.description && typeof t.description === 'string') {
-      const desc = t.description.toLowerCase().trim();
-      if (
-        desc === 'saldo inicial' || 
-        desc === 'saldo de abertura' || 
-        desc === 'abertura de caixa' ||
-        desc.startsWith('saldo inicial') ||
-        desc.startsWith('saldo de abertura') ||
-        desc.startsWith('abertura de caixa')
-      ) {
-        return true;
-      }
-    }
-    return false;
-  };
-
   // 1. First add remote transactions
   if (Array.isArray(remote)) {
     remote.forEach(t => {
-      if (t && t.id && !isLegacy(t)) {
+      if (t && t.id && !isLegacySeedTx(t)) {
         map.set(t.id, { ...t });
       }
     });
@@ -89,7 +68,7 @@ const mergeAndSortTransactions = (
   // 2. Merge local transactions
   if (Array.isArray(local)) {
     local.forEach(localTx => {
-      if (localTx && localTx.id && !isLegacy(localTx)) {
+      if (localTx && localTx.id && !isLegacySeedTx(localTx)) {
         if (!map.has(localTx.id)) {
           map.set(localTx.id, { ...localTx });
         } else {
@@ -704,27 +683,6 @@ export default function App() {
                     }
 
                     // Smart non-destructive merge: start with remote, merge with current local state
-                    const isLegacySeedTx = (t: any) => {
-                      if (!t) return true;
-                      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
-                      if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
-                      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
-                      if (t.description && typeof t.description === 'string') {
-                        const desc = t.description.toLowerCase().trim();
-                        if (
-                          desc === 'saldo inicial' || 
-                          desc === 'saldo de abertura' || 
-                          desc === 'abertura de caixa' ||
-                          desc.startsWith('saldo inicial') ||
-                          desc.startsWith('saldo de abertura') ||
-                          desc.startsWith('abertura de caixa')
-                        ) {
-                          return true;
-                        }
-                      }
-                      return false;
-                    };
-
                     const txMap = new Map<string, any>();
                     
                     savedState.transactions.forEach((rt: any) => {

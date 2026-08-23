@@ -434,44 +434,44 @@ async function executeSaveStateToFirestore(
 
     // 9. CRITICAL: Recalculate Box Balances for BOTH Caixa 5% and Caixa Lições from the unified transactions!
     let initialBox5 = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 
-                      (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 0.00;
+                      (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_5_EBD')?.initialBalance) ?? 76.15;
     let initialBoxLicoes = (stateData.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 
-                           (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 0.00;
+                           (remoteData?.boxes?.find((b: any) => b && b.id === 'CAIXA_LICOES')?.initialBalance) ?? 160.00;
 
     if (
-      initialBox5 === 76.15 ||
       initialBox5 === 152.30 ||
       initialBox5 === 250.25 || 
       initialBox5 === 326.40 || 
       initialBox5 === 326.4 || 
       initialBox5 === 250 || 
+      initialBox5 === 0 ||
       typeof initialBox5 !== 'number'
     ) {
-      initialBox5 = 0.00;
+      initialBox5 = 76.15;
     }
     if (
-      initialBoxLicoes === 160.00 ||
       initialBoxLicoes === 320.00 ||
       initialBoxLicoes === 150.00 || 
       initialBoxLicoes === 310.00 || 
       initialBoxLicoes === 310 || 
       initialBoxLicoes === 150 || 
+      initialBoxLicoes === 0 ||
       typeof initialBoxLicoes !== 'number'
     ) {
-      initialBoxLicoes = 0.00;
+      initialBoxLicoes = 160.00;
     }
 
     const defaultBoxesTemplate = [
       {
         id: 'CAIXA_5_EBD',
-        name: 'Caixa 5% EBD',
+        name: 'Caixa 01 - 5% EBD',
         description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
         balance: 76.15,
         initialBalance: initialBox5
       },
       {
         id: 'CAIXA_LICOES',
-        name: 'Caixa Lições',
+        name: 'Caixa 02 - Lições',
         description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
         balance: 160.00,
         initialBalance: initialBoxLicoes
