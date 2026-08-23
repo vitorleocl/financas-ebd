@@ -226,7 +226,32 @@ async function executeSaveStateToFirestore(
     const isLegacySeedTx = (t: any) => {
       if (!t) return true;
       const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
-      if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+      if (
+        amt === 250.25 || 
+        amt === 150.00 || 
+        amt === 326.40 || 
+        amt === 310.00 || 
+        amt === 152.30 || 
+        amt === 320.00 ||
+        amt === 76.15 ||
+        amt === 160.00
+      ) {
+        if (t.description) {
+          const desc = t.description.toLowerCase().trim();
+          if (
+            desc === 'saldo inicial' || 
+            desc === 'saldo de abertura' || 
+            desc === 'abertura de caixa' ||
+            desc === 'saldo base inicial' ||
+            desc.startsWith('saldo inicial') ||
+            desc.startsWith('saldo de abertura') ||
+            desc.startsWith('abertura de caixa') ||
+            desc.startsWith('saldo base inicial')
+          ) {
+            return true;
+          }
+        }
+      }
       if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
       if (t.description && typeof t.description === 'string') {
         const desc = t.description.toLowerCase().trim();
@@ -234,9 +259,11 @@ async function executeSaveStateToFirestore(
           desc === 'saldo inicial' || 
           desc === 'saldo de abertura' || 
           desc === 'abertura de caixa' ||
+          desc === 'saldo base inicial' ||
           desc.startsWith('saldo inicial') ||
           desc.startsWith('saldo de abertura') ||
-          desc.startsWith('abertura de caixa')
+          desc.startsWith('abertura de caixa') ||
+          desc.startsWith('saldo base inicial')
         ) {
           return true;
         }
@@ -413,6 +440,7 @@ async function executeSaveStateToFirestore(
 
     if (
       initialBox5 === 76.15 ||
+      initialBox5 === 152.30 ||
       initialBox5 === 250.25 || 
       initialBox5 === 326.40 || 
       initialBox5 === 326.4 || 
@@ -423,6 +451,7 @@ async function executeSaveStateToFirestore(
     }
     if (
       initialBoxLicoes === 160.00 ||
+      initialBoxLicoes === 320.00 ||
       initialBoxLicoes === 150.00 || 
       initialBoxLicoes === 310.00 || 
       initialBoxLicoes === 310 || 

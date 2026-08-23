@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, getInitialState, saveState, recalculateBalances, addAuditLog } from './data/stateManager';
+import { AppState, getInitialState, saveState, recalculateBalances, addAuditLog, isLegacySeedTx } from './data/stateManager';
 import { INITIAL_CATEGORIES } from './data/initialData';
 import { User, BoxId, Transaction, WeeklyClosing as ClosingType, Person, UserRole, AuditLog } from './types';
 import { 
@@ -732,32 +732,14 @@ export default function App() {
                         if (isLegacySeedTx(rt)) {
                           deletedTxIds.add(rt.id);
                         } else if (!deletedTxIds.has(rt.id)) {
-                          txMap.set(rt.id, { ...rt });
-                        }
-                      }
-                    });
-
-                    (current.transactions || []).forEach((lt: any) => {
-                      if (lt && lt.id) {
-                        if (isLegacySeedTx(lt)) {
-                          deletedTxIds.add(lt.id);
-                        } else if (!deletedTxIds.has(lt.id)) {
-                          if (!txMap.has(lt.id)) {
-                            txMap.set(lt.id, { ...lt });
-                          } else {
-                            const remoteTx = txMap.get(lt.id);
-                            const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
-                            const approval = approvedTransactionsRef.current.get(lt.id);
-                            txMap.set(lt.id, {
-                              ...remoteTx,
-                              ...lt,
-                              isApproved,
-                              approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
-                              approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
-                              attachment: lt.attachment || remoteTx.attachment,
-                              signature: lt.signature || remoteTx.signature
-                            });
-                          }
+                          const isApproved = rt.isApproved === true || approvedTransactionsRef.current.has(rt.id);
+                          const approval = approvedTransactionsRef.current.get(rt.id);
+                          txMap.set(rt.id, {
+                            ...rt,
+                            isApproved,
+                            approvedBy: isApproved ? (rt.approvedBy || approval?.approvedBy) : undefined,
+                            approvedAt: isApproved ? (rt.approvedAt || approval?.approvedAt) : undefined,
+                          });
                         }
                       }
                     });
@@ -1464,31 +1446,23 @@ export default function App() {
             const txMap = new Map<string, any>();
             
             savedState.transactions.forEach((rt: any) => {
-              if (rt && rt.id && !deletedTxIds.has(rt.id)) {
-                txMap.set(rt.id, { ...rt });
-              }
-            });
-
-            (current.transactions || []).forEach((lt: any) => {
-              if (lt && lt.id && !deletedTxIds.has(lt.id)) {
-                if (!txMap.has(lt.id)) {
-                  txMap.set(lt.id, { ...lt });
-                } else {
-                  const remoteTx = txMap.get(lt.id);
-                  const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
-                  const approval = approvedTransactionsRef.current.get(lt.id);
-                  txMap.set(lt.id, {
-                    ...remoteTx,
-                    ...lt,
+              if (rt && rt.id) {
+                if (isLegacySeedTx(rt)) {
+                  deletedTxIds.add(rt.id);
+                } else if (!deletedTxIds.has(rt.id)) {
+                  const isApproved = rt.isApproved === true || approvedTransactionsRef.current.has(rt.id);
+                  const approval = approvedTransactionsRef.current.get(rt.id);
+                  txMap.set(rt.id, {
+                    ...rt,
                     isApproved,
-                    approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
-                    approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
-                    attachment: lt.attachment || remoteTx.attachment,
-                    signature: lt.signature || remoteTx.signature
+                    approvedBy: isApproved ? (rt.approvedBy || approval?.approvedBy) : undefined,
+                    approvedAt: isApproved ? (rt.approvedAt || approval?.approvedAt) : undefined,
                   });
                 }
               }
             });
+
+            updatedState.deletedTransactionIds = Array.from(deletedTxIds);
 
             updatedState.transactions = Array.from(txMap.values())
               .map((t: any) => {

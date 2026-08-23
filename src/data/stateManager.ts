@@ -38,7 +38,32 @@ const STORAGE_KEY = 'ebd_financial_system_state_v1';
 export const isLegacySeedTx = (t: any): boolean => {
   if (!t) return true;
   const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0;
-  if (amt === 250.25 || amt === 150.00 || amt === 326.40 || amt === 310.00) return true;
+  if (
+    amt === 250.25 || 
+    amt === 150.00 || 
+    amt === 326.40 || 
+    amt === 310.00 || 
+    amt === 152.30 || 
+    amt === 320.00 ||
+    amt === 76.15 ||
+    amt === 160.00
+  ) {
+    if (t.description) {
+      const desc = t.description.toLowerCase().trim();
+      if (
+        desc === 'saldo inicial' || 
+        desc === 'saldo de abertura' || 
+        desc === 'abertura de caixa' ||
+        desc === 'saldo base inicial' ||
+        desc.startsWith('saldo inicial') ||
+        desc.startsWith('saldo de abertura') ||
+        desc.startsWith('abertura de caixa') ||
+        desc.startsWith('saldo base inicial')
+      ) {
+        return true;
+      }
+    }
+  }
   if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
   if (t.description && typeof t.description === 'string') {
     const desc = t.description.toLowerCase().trim();
@@ -46,9 +71,11 @@ export const isLegacySeedTx = (t: any): boolean => {
       desc === 'saldo inicial' || 
       desc === 'saldo de abertura' || 
       desc === 'abertura de caixa' ||
+      desc === 'saldo base inicial' ||
       desc.startsWith('saldo inicial') ||
       desc.startsWith('saldo de abertura') ||
-      desc.startsWith('abertura de caixa')
+      desc.startsWith('abertura de caixa') ||
+      desc.startsWith('saldo base inicial')
     ) {
       return true;
     }
@@ -222,6 +249,7 @@ export function recalculateBalances(state: AppState): Box[] {
       if (templateBox.id === 'CAIXA_5_EBD') {
         if (
           existingBox.initialBalance === 76.15 ||
+          existingBox.initialBalance === 152.30 ||
           existingBox.initialBalance === 250.25 || 
           existingBox.initialBalance === 326.40 || 
           existingBox.initialBalance === 326.4 || 
@@ -234,6 +262,7 @@ export function recalculateBalances(state: AppState): Box[] {
       } else if (templateBox.id === 'CAIXA_LICOES') {
         if (
           existingBox.initialBalance === 160.00 ||
+          existingBox.initialBalance === 320.00 ||
           existingBox.initialBalance === 150.00 || 
           existingBox.initialBalance === 310.00 || 
           existingBox.initialBalance === 310 || 
