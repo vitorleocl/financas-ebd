@@ -88,14 +88,33 @@ export default function TransactionForm({ categories, onSubmit, currentUser, onN
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Automatically select first category of list when list updates
+  // Synchronize category only when switching type or if currently selected category is invalid
   useEffect(() => {
-    if (filteredCategories.length > 0) {
-      setCategoryId(filteredCategories[0].id);
-    } else {
-      setCategoryId('');
-    }
+    setCategoryId(prev => {
+      // If current category is still valid for this movement type, keep it!
+      const currentExists = filteredCategories.some(c => c.id === prev);
+      if (currentExists && prev) {
+        return prev;
+      }
+      // Otherwise default to the first category of the filtered type
+      const defaultId = filteredCategories[0]?.id || '';
+      return defaultId;
+    });
   }, [type, categories]);
+
+  // Handle category change and auto-suggest the matching box if appropriate
+  const handleCategorySelect = (selectedId: string) => {
+    setCategoryId(selectedId);
+    const cat = categories.find(c => c.id === selectedId);
+    if (cat) {
+      const nameLower = cat.name.toLowerCase();
+      if (selectedId === 'cat-ent-3' || selectedId === 'cat-sai-1' || nameLower.includes('revista') || nameLower.includes('lição') || nameLower.includes('licao')) {
+        setBoxId('CAIXA_LICOES');
+      } else if (selectedId === 'cat-ent-1' || selectedId === 'cat-ent-2' || nameLower.includes('5%') || nameLower.includes('oferta') || nameLower.includes('dízimo') || nameLower.includes('dizimo')) {
+        setBoxId('CAIXA_5_EBD');
+      }
+    }
+  };
 
   // Clean up webcam on unmount
   useEffect(() => {
@@ -357,7 +376,7 @@ export default function TransactionForm({ categories, onSubmit, currentUser, onN
             </label>
             <select
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => handleCategorySelect(e.target.value)}
               className="block w-full px-3 py-2.5 sm:text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 font-medium"
             >
               {filteredCategories.map(cat => (
