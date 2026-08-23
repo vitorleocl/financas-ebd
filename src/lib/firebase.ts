@@ -233,26 +233,24 @@ async function executeSaveStateToFirestore(
         amt === 310.00 || 
         amt === 152.30 || 
         amt === 320.00 ||
-        amt === 76.15 ||
-        amt === 160.00
+        amt === 250 ||
+        amt === 150
       ) {
-        if (t.description) {
-          const desc = t.description.toLowerCase().trim();
-          if (
-            desc === 'saldo inicial' || 
-            desc === 'saldo de abertura' || 
-            desc === 'abertura de caixa' ||
-            desc === 'saldo base inicial' ||
-            desc.startsWith('saldo inicial') ||
-            desc.startsWith('saldo de abertura') ||
-            desc.startsWith('abertura de caixa') ||
-            desc.startsWith('saldo base inicial')
-          ) {
-            return true;
-          }
-        }
+        return true;
       }
-      if (t.id && (t.id.startsWith('tx-init-') || t.id === 'tx-seed-1' || t.id === 'tx-seed-2' || t.id === 'tx-1' || t.id === 'tx-2')) return true;
+      if (t.id && (
+        t.id.startsWith('tx-init-') || 
+        t.id === 'tx-seed-1' || 
+        t.id === 'tx-seed-2' || 
+        t.id === 'tx-seed-3' || 
+        t.id === 'tx-1' || 
+        t.id === 'tx-2' || 
+        t.id === 'tx-3' ||
+        t.id.startsWith('tx-sample-') ||
+        t.id.startsWith('seed-')
+      )) {
+        return true;
+      }
       if (t.description && typeof t.description === 'string') {
         const desc = t.description.toLowerCase().trim();
         if (
@@ -260,10 +258,14 @@ async function executeSaveStateToFirestore(
           desc === 'saldo de abertura' || 
           desc === 'abertura de caixa' ||
           desc === 'saldo base inicial' ||
+          desc === 'cota inicial' ||
+          desc === 'saldo anterior' ||
+          desc === 'saldo base' ||
           desc.startsWith('saldo inicial') ||
           desc.startsWith('saldo de abertura') ||
           desc.startsWith('abertura de caixa') ||
-          desc.startsWith('saldo base inicial')
+          desc.startsWith('saldo base inicial') ||
+          desc.startsWith('saldo anterior')
         ) {
           return true;
         }

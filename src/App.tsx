@@ -749,6 +749,38 @@ export default function App() {
                       .slice(0, 200);
                   }
 
+                  if (savedState.boxes && Array.isArray(savedState.boxes)) {
+                    updatedState.boxes = savedState.boxes.map((b: any) => {
+                      if (b.id === 'CAIXA_5_EBD') {
+                        if (
+                          b.initialBalance === 250.25 || 
+                          b.initialBalance === 326.40 || 
+                          b.initialBalance === 326.4 || 
+                          b.initialBalance === 250 ||
+                          b.initialBalance === 152.30 ||
+                          b.initialBalance === 0 ||
+                          typeof b.initialBalance !== 'number'
+                        ) {
+                          return { ...b, initialBalance: 76.15 };
+                        }
+                      }
+                      if (b.id === 'CAIXA_LICOES') {
+                        if (
+                          b.initialBalance === 150.00 || 
+                          b.initialBalance === 310.00 || 
+                          b.initialBalance === 310 || 
+                          b.initialBalance === 150 ||
+                          b.initialBalance === 320.00 ||
+                          b.initialBalance === 0 ||
+                          typeof b.initialBalance !== 'number'
+                        ) {
+                          return { ...b, initialBalance: 160.00 };
+                        }
+                      }
+                      return b;
+                    });
+                  }
+
                   // Recalculate box balances automatically based on the remote transactions list to ensure 100% mathematical consistency
                   updatedState.boxes = recalculateBalances(updatedState);
                   
@@ -1465,6 +1497,38 @@ export default function App() {
             updatedState.auditLogs = [...savedState.auditLogs]
               .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
               .slice(0, 200);
+          }
+
+          if (savedState.boxes && Array.isArray(savedState.boxes)) {
+            updatedState.boxes = savedState.boxes.map((b: any) => {
+              if (b.id === 'CAIXA_5_EBD') {
+                if (
+                  b.initialBalance === 250.25 || 
+                  b.initialBalance === 326.40 || 
+                  b.initialBalance === 326.4 || 
+                  b.initialBalance === 250 ||
+                  b.initialBalance === 152.30 ||
+                  b.initialBalance === 0 ||
+                  typeof b.initialBalance !== 'number'
+                ) {
+                  return { ...b, initialBalance: 76.15 };
+                }
+              }
+              if (b.id === 'CAIXA_LICOES') {
+                if (
+                  b.initialBalance === 150.00 || 
+                  b.initialBalance === 310.00 || 
+                  b.initialBalance === 310 || 
+                  b.initialBalance === 150 ||
+                  b.initialBalance === 320.00 ||
+                  b.initialBalance === 0 ||
+                  typeof b.initialBalance !== 'number'
+                ) {
+                  return { ...b, initialBalance: 160.00 };
+                }
+              }
+              return b;
+            });
           }
 
           if (savedState.users && Array.isArray(savedState.users)) {
