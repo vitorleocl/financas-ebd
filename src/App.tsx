@@ -681,9 +681,37 @@ export default function App() {
                       saveAdministrativeRefs();
                     }
 
-                    // Adopt the canonical remote transactions list from the shared cloud database
-                    updatedState.transactions = savedState.transactions
-                      .filter((t: any) => t && t.id && !deletedTxIds.has(t.id))
+                    // Smart non-destructive merge: start with remote, merge with current local state
+                    const txMap = new Map<string, any>();
+                    
+                    savedState.transactions.forEach((rt: any) => {
+                      if (rt && rt.id && !deletedTxIds.has(rt.id)) {
+                        txMap.set(rt.id, { ...rt });
+                      }
+                    });
+
+                    (current.transactions || []).forEach((lt: any) => {
+                      if (lt && lt.id && !deletedTxIds.has(lt.id)) {
+                        if (!txMap.has(lt.id)) {
+                          txMap.set(lt.id, { ...lt });
+                        } else {
+                          const remoteTx = txMap.get(lt.id);
+                          const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
+                          const approval = approvedTransactionsRef.current.get(lt.id);
+                          txMap.set(lt.id, {
+                            ...remoteTx,
+                            ...lt,
+                            isApproved,
+                            approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
+                            approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
+                            attachment: lt.attachment || remoteTx.attachment,
+                            signature: lt.signature || remoteTx.signature
+                          });
+                        }
+                      }
+                    });
+
+                    updatedState.transactions = Array.from(txMap.values())
                       .map((t: any) => {
                         let boxId = t.boxId;
                         if (!boxId) {
@@ -699,6 +727,7 @@ export default function App() {
                         return {
                           ...t,
                           boxId,
+                          amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0,
                           isApproved,
                           approvedBy: isApproved ? (t.approvedBy || approval?.approvedBy) : undefined,
                           approvedAt: isApproved ? (t.approvedAt || approval?.approvedAt) : undefined
@@ -1320,6 +1349,7 @@ export default function App() {
   // Update state and immediately persist to Google Firestore to prevent any page-refresh data loss or snapshot race conditions
   const updateStateAndPersist = (updatedState: AppState) => {
     setState(updatedState);
+    saveState(updatedState); // Immediately persist locally so refresh is always 100% resilient
 
     if (updatedState.currentUser && updatedState.currentUser.id.startsWith('fb-') && updatedState.currentUser.role !== 'VISITANTE') {
       const fbUserId = updatedState.currentUser.id.replace('fb-', '');
@@ -1378,8 +1408,36 @@ export default function App() {
           });
 
           if (savedState.transactions && Array.isArray(savedState.transactions)) {
-            updatedState.transactions = savedState.transactions
-              .filter((t: any) => t && t.id && !deletedTxIds.has(t.id))
+            const txMap = new Map<string, any>();
+            
+            savedState.transactions.forEach((rt: any) => {
+              if (rt && rt.id && !deletedTxIds.has(rt.id)) {
+                txMap.set(rt.id, { ...rt });
+              }
+            });
+
+            (current.transactions || []).forEach((lt: any) => {
+              if (lt && lt.id && !deletedTxIds.has(lt.id)) {
+                if (!txMap.has(lt.id)) {
+                  txMap.set(lt.id, { ...lt });
+                } else {
+                  const remoteTx = txMap.get(lt.id);
+                  const isApproved = remoteTx.isApproved === true || lt.isApproved === true || approvedTransactionsRef.current.has(lt.id);
+                  const approval = approvedTransactionsRef.current.get(lt.id);
+                  txMap.set(lt.id, {
+                    ...remoteTx,
+                    ...lt,
+                    isApproved,
+                    approvedBy: isApproved ? (lt.approvedBy || remoteTx.approvedBy || approval?.approvedBy) : undefined,
+                    approvedAt: isApproved ? (lt.approvedAt || remoteTx.approvedAt || approval?.approvedAt) : undefined,
+                    attachment: lt.attachment || remoteTx.attachment,
+                    signature: lt.signature || remoteTx.signature
+                  });
+                }
+              }
+            });
+
+            updatedState.transactions = Array.from(txMap.values())
               .map((t: any) => {
                 let boxId = t.boxId;
                 if (!boxId) {
@@ -1395,6 +1453,7 @@ export default function App() {
                 return {
                   ...t,
                   boxId,
+                  amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount as any) || 0,
                   isApproved,
                   approvedBy: isApproved ? (t.approvedBy || approval?.approvedBy) : undefined,
                   approvedAt: isApproved ? (t.approvedAt || approval?.approvedAt) : undefined
