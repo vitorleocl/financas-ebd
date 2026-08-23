@@ -127,12 +127,29 @@ export function addAuditLog(
 
 // Recalculates box balances based on APPROVED transactions
 export function recalculateBalances(state: AppState): Box[] {
-  const boxes = state.boxes || [];
   const transactions = state.transactions || [];
 
-  return boxes.map(box => {
-    if (!box) return box;
-    
+  const defaultBoxesTemplate: Box[] = [
+    {
+      id: 'CAIXA_5_EBD',
+      name: 'Caixa 5% EBD',
+      description: 'Fundo de caixa proveniente de dízimos/ofertas da igreja central (cota de 5% destinada à EBD) para manutenção diária e necessidades gerais.',
+      balance: 0.00,
+      initialBalance: 0.00
+    },
+    {
+      id: 'CAIXA_LICOES',
+      name: 'Caixa Lições',
+      description: 'Caixa exclusivo de receitas da venda de revistas (lições dominicais) e despesas de aquisição das novas lições trimestrais.',
+      balance: 0.00,
+      initialBalance: 0.00
+    }
+  ];
+
+  return defaultBoxesTemplate.map(templateBox => {
+    const existingBox = state.boxes?.find(b => b && b.id === templateBox.id);
+    const box = existingBox || templateBox;
+
     const boxTransactionsForThisBox = transactions.filter(t => {
       if (!t) return false;
       let bid = t.boxId;
@@ -165,6 +182,8 @@ export function recalculateBalances(state: AppState): Box[] {
 
     return {
       ...box,
+      name: templateBox.name,
+      description: templateBox.description,
       balance: parseFloat(balance.toFixed(2)) // Keep decimal precision safe
     };
   });

@@ -10,7 +10,7 @@ import { User, BoxId, Transaction, WeeklyClosing as ClosingType, Person, UserRol
 import { 
   Lock, Landmark, ArrowLeftRight, PlusCircle, CalendarRange, 
   Users, BarChart3, History, LogOut, ShieldAlert, FileDown, FileUp, 
-  Menu, X, BookOpen, AlertCircle, ShieldCheck, Cloud, Trash2, Loader2
+  Menu, X, BookOpen, AlertCircle, ShieldCheck, Cloud, Trash2, Loader2, RefreshCw
 } from 'lucide-react';
 import { 
   auth, 
@@ -681,24 +681,50 @@ export default function App() {
                       saveAdministrativeRefs();
                     }
 
-                    // Merging remote transactions with current local transactions ensuring approved ones remain approved forever
-                    updatedState.transactions = mergeAndSortTransactions(
-                      current.transactions || [],
-                      savedState.transactions,
-                      approvedTransactionsRef.current
-                    ).filter((t: any) => t && t.id && !deletedTxIds.has(t.id));
+                    // Adopt the canonical remote transactions list from the shared cloud database
+                    updatedState.transactions = savedState.transactions
+                      .filter((t: any) => t && t.id && !deletedTxIds.has(t.id))
+                      .map((t: any) => {
+                        let boxId = t.boxId;
+                        if (!boxId) {
+                          if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+                              (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+                            boxId = 'CAIXA_LICOES';
+                          } else {
+                            boxId = 'CAIXA_5_EBD';
+                          }
+                        }
+                        const isApproved = t.isApproved === true || approvedTransactionsRef.current.has(t.id);
+                        const approval = approvedTransactionsRef.current.get(t.id);
+                        return {
+                          ...t,
+                          boxId,
+                          isApproved,
+                          approvedBy: isApproved ? (t.approvedBy || approval?.approvedBy) : undefined,
+                          approvedAt: isApproved ? (t.approvedAt || approval?.approvedAt) : undefined
+                        };
+                      })
+                      .sort((a: any, b: any) => {
+                        const timeA = new Date(a.createdAt || a.id.replace('tx-', '')).getTime();
+                        const timeB = new Date(b.createdAt || b.id.replace('tx-', '')).getTime();
+                        return timeB - timeA;
+                      });
                   }
                   
                   if (savedState.people && Array.isArray(savedState.people)) {
-                    updatedState.people = mergeArraysById(current.people || [], savedState.people).filter((p: any) => p && p.id && !deletedPId.has(p.id));
+                    updatedState.people = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
                   }
 
                   if (savedState.closings && Array.isArray(savedState.closings)) {
-                    updatedState.closings = mergeClosings(current.closings || [], savedState.closings).filter((c: any) => c && c.id && !deletedCId.has(c.id));
+                    updatedState.closings = savedState.closings
+                      .filter((c: any) => c && c.id && !deletedCId.has(c.id))
+                      .sort((a: any, b: any) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime());
                   }
 
                   if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
-                    updatedState.auditLogs = mergeAuditLogs(current.auditLogs || [], savedState.auditLogs);
+                    updatedState.auditLogs = [...savedState.auditLogs]
+                      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      .slice(0, 200);
                   }
 
                   // Recalculate box balances automatically based on the remote transactions list to ensure 100% mathematical consistency
@@ -1319,6 +1345,104 @@ export default function App() {
         .finally(() => {
           setSyncingFirestore(false);
         });
+    }
+  };
+
+  // Force-pull fresh canonical state directly from Google Cloud Firestore server
+  const handleForceSyncFromFirestore = async () => {
+    try {
+      setSyncingFirestore(true);
+      const userDocRef = doc(db, "ebd_states", "shared_church_ebd");
+      let docSnap: any = null;
+      try {
+        docSnap = await getDocFromServer(userDocRef);
+      } catch {
+        docSnap = await getDoc(userDocRef);
+      }
+
+      if (docSnap && docSnap.exists()) {
+        const savedState = docSnap.data();
+        const deletedTxIds = new Set<string>(savedState.deletedTransactionIds || []);
+        const deletedCId = new Set<string>(savedState.deletedClosingIds || []);
+        const deletedPId = new Set<string>(savedState.deletedPeopleIds || []);
+
+        setState(current => {
+          const updatedState = { ...current };
+          if (savedState.categories && Array.isArray(savedState.categories)) {
+            updatedState.categories = [...savedState.categories];
+          }
+          INITIAL_CATEGORIES.forEach((initCat: any) => {
+            if (!updatedState.categories.some(c => c.id === initCat.id)) {
+              updatedState.categories.push(initCat);
+            }
+          });
+
+          if (savedState.transactions && Array.isArray(savedState.transactions)) {
+            updatedState.transactions = savedState.transactions
+              .filter((t: any) => t && t.id && !deletedTxIds.has(t.id))
+              .map((t: any) => {
+                let boxId = t.boxId;
+                if (!boxId) {
+                  if (t.categoryId === 'cat-ent-3' || t.categoryId === 'cat-sai-1' || 
+                      (t.description && (t.description.toLowerCase().includes('revista') || t.description.toLowerCase().includes('lição') || t.description.toLowerCase().includes('licao')))) {
+                    boxId = 'CAIXA_LICOES';
+                  } else {
+                    boxId = 'CAIXA_5_EBD';
+                  }
+                }
+                const isApproved = t.isApproved === true || approvedTransactionsRef.current.has(t.id);
+                const approval = approvedTransactionsRef.current.get(t.id);
+                return {
+                  ...t,
+                  boxId,
+                  isApproved,
+                  approvedBy: isApproved ? (t.approvedBy || approval?.approvedBy) : undefined,
+                  approvedAt: isApproved ? (t.approvedAt || approval?.approvedAt) : undefined
+                };
+              })
+              .sort((a: any, b: any) => {
+                const timeA = new Date(a.createdAt || a.id.replace('tx-', '')).getTime();
+                const timeB = new Date(b.createdAt || b.id.replace('tx-', '')).getTime();
+                return timeB - timeA;
+              });
+          }
+
+          if (savedState.people && Array.isArray(savedState.people)) {
+            updatedState.people = savedState.people.filter((p: any) => p && p.id && !deletedPId.has(p.id));
+          }
+
+          if (savedState.closings && Array.isArray(savedState.closings)) {
+            updatedState.closings = savedState.closings
+              .filter((c: any) => c && c.id && !deletedCId.has(c.id))
+              .sort((a: any, b: any) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime());
+          }
+
+          if (savedState.auditLogs && Array.isArray(savedState.auditLogs)) {
+            updatedState.auditLogs = [...savedState.auditLogs]
+              .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+              .slice(0, 200);
+          }
+
+          if (savedState.users && Array.isArray(savedState.users)) {
+            updatedState.users = mergeUsers(
+              current.users || [],
+              savedState.users,
+              deletedUsernamesRef.current,
+              editedUsersRef.current
+            );
+          }
+
+          updatedState.boxes = recalculateBalances(updatedState);
+          saveState(updatedState);
+          return updatedState;
+        });
+
+        setLastSyncedTime(new Date().toLocaleTimeString());
+      }
+    } catch (err) {
+      console.error("Erro ao forçar atualização na nuvem:", err);
+    } finally {
+      setSyncingFirestore(false);
     }
   };
 
@@ -2001,10 +2125,16 @@ export default function App() {
               {user.role !== 'VISITANTE' && (
                 <div className="flex items-center gap-1.5">
                   {user.id.startsWith('fb-') && (
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono px-3 py-1 bg-slate-900 text-slate-300 border border-slate-800 rounded-full">
-                      <span className={`w-2 h-2 rounded-full ${syncingFirestore ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
-                      <span>{syncingFirestore ? 'Salvando...' : 'Nuvem Conectada'}</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleForceSyncFromFirestore}
+                      disabled={syncingFirestore}
+                      className="flex items-center gap-1.5 text-[10px] font-bold font-mono px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-full transition-all cursor-pointer active:scale-95 disabled:opacity-70"
+                      title="Clique para forçar sincronização imediata em tempo real com a nuvem"
+                    >
+                      <RefreshCw className={`w-3 h-3 text-indigo-400 ${syncingFirestore ? 'animate-spin' : ''}`} />
+                      <span>{syncingFirestore ? 'Sincronizando...' : 'Sincronizar'}</span>
+                    </button>
                   )}
 
                   <button
@@ -2131,24 +2261,32 @@ export default function App() {
                   
                   <div className="flex gap-2">
                     <button
-                      onClick={() => { handleDownloadBackup(); setMobileMenuOpen(false); }}
-                      className="flex-1 py-1 px-3 bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 rounded text-center text-[10px]"
+                      onClick={() => { handleForceSyncFromFirestore(); setMobileMenuOpen(false); }}
+                      disabled={syncingFirestore}
+                      className="flex-1 py-1.5 px-3 bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 rounded text-center text-[10px] flex items-center justify-center gap-1.5 font-bold"
                     >
-                      Download Backup
+                      <RefreshCw className={`w-3 h-3 text-indigo-400 ${syncingFirestore ? 'animate-spin' : ''}`} />
+                      <span>{syncingFirestore ? 'Sincronizando...' : 'Sincronizar'}</span>
+                    </button>
+                    <button
+                      onClick={() => { handleDownloadBackup(); setMobileMenuOpen(false); }}
+                      className="flex-1 py-1.5 px-3 bg-slate-800 border border-slate-700 text-slate-300 rounded text-center text-[10px]"
+                    >
+                      Backup
                     </button>
                     {user.role === 'MASTER' && (
                       <button
                         onClick={() => { setShowResetConfirm(true); setMobileMenuOpen(false); }}
-                        className="flex-1 py-1 px-3 bg-red-550/15 border border-red-500/20 text-red-300 rounded text-center text-[10px]"
+                        className="flex-1 py-1.5 px-3 bg-red-550/15 border border-red-500/20 text-red-300 rounded text-center text-[10px]"
                       >
-                        Zerar Dados
+                        Zerar
                       </button>
                     )}
                     <button
                       onClick={handleLogout}
-                      className="flex-1 py-1 px-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-center text-[10px]"
+                      className="flex-1 py-1.5 px-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-center text-[10px]"
                     >
-                      Sair do Sistema
+                      Sair
                     </button>
                   </div>
                 </div>
